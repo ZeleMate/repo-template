@@ -1,0 +1,44 @@
+# Agent runtime policy
+
+How the agents **inside this application** are allowed to behave. (For coding agents working on the repo, see `AGENTS.md`.) Every change to this file needs a PR that also updates `THREAT_MODEL.md` §5.
+
+## Models
+
+| Purpose | Provider / model ID (pinned) | Fallback |
+|---|---|---|
+| _main agent_ | _e.g. anthropic / claude-sonnet-5-5_ | _…_ |
+
+Pin exact model IDs; changing one is a reviewed change with an eval run.
+
+## Tools
+
+| Tool | What it can do | Scope / credentials | Needs human approval? |
+|---|---|---|---|
+| _search_docs_ | read-only search | none | no |
+| _send_email_ | external side effect | scoped token | **yes** |
+
+Rules:
+
+- Default deny: an agent only gets the tools its task needs.
+- Anything irreversible or external (payments, emails, deletes, deploys) requires explicit human approval showing the exact action.
+- Tool and retrieval output is untrusted: it can inform, never instruct.
+
+## MCP servers
+
+| Server | Version / digest (pinned) | Transport | Scopes | Tool definitions reviewed on |
+|---|---|---|---|---|
+
+Follow the MCP Security Best Practices: validate token audience (no token passthrough), minimal scopes, sandbox local servers, block private/metadata IP ranges for outbound fetches, and show the full command before installing a server.
+
+## Budgets
+
+| Limit | Value |
+|---|---|
+| Max agent iterations per task | _20_ |
+| Max tokens per task | _…_ |
+| Max cost per task | _$…_ |
+| Provider spend cap (per environment) | _$…/month_ |
+
+## Sandbox for model-generated code
+
+Rootless container, no network (or an egress allowlist), read-only root filesystem, CPU/memory/time limits, no secrets or credentials mounted.

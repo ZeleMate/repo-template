@@ -1,0 +1,5 @@
+{
+[% for l in languages %]
+  "[[ {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir}[l] ]]": "0.1.0"[% if not loop.last %],[% endif +%]
+[% endfor %]
+}

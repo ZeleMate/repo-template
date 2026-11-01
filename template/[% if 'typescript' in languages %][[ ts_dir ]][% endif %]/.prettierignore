@@ -1,0 +1,14 @@
+# Prettier formats the TypeScript project only; Markdown, YAML and config files
+# elsewhere in the repo are left as written (CI lints workflows with actionlint/zizmor).
+dist/
+coverage/
+pnpm-lock.yaml
+*.md
+*.yml
+*.yaml
+.claude/
+.github/
+docs/
+evals/
+python/
+rust/

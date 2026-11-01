@@ -1,0 +1,24 @@
+# SonarQube Cloud (CI-based analysis). Turn OFF "Automatic Analysis" in the project's
+# SonarQube Cloud settings, or the two analyses conflict.
+sonar.organization=[[ sonar_organization ]]
+sonar.projectKey=[[ sonar_organization ]]_[[ project_slug ]]
+sonar.projectName=[[ project_name ]]
+sonar.sourceEncoding=UTF-8
+sonar.qualitygate.wait=true
+sonar.exclusions=**/dist/**,**/node_modules/**,**/target/**,**/coverage/**,evals/**
+[% set srcs = [] %]
+[% set tests = [] %]
+[% if 'python' in languages %][% set _ = srcs.append((py_dir ~ '/src') if multi_lang else 'src') %][% set _ = tests.append((py_dir ~ '/tests') if multi_lang else 'tests') %][% endif %]
+[% if 'typescript' in languages %][% set _ = srcs.append((ts_dir ~ '/src') if multi_lang else 'src') %][% set _ = tests.append((ts_dir ~ '/test') if multi_lang else 'test') %][% endif %]
+[% if 'rust' in languages %][% set _ = srcs.append((rs_dir ~ '/src') if multi_lang else 'src') %][% endif %]
+sonar.sources=[[ srcs | unique | join(',') ]]
+[% if tests %]
+sonar.tests=[[ tests | join(',') ]]
+[% endif %]
+[% if 'python' in languages %]
+sonar.python.version=[[ python_version ]]
+sonar.python.coverage.reportPaths=[[ py_dir ]]/coverage.xml
+[% endif %]
+[% if 'typescript' in languages %]
+sonar.javascript.lcov.reportPaths=[[ ts_dir ]]/coverage/lcov.info
+[% endif %]

@@ -1,0 +1,27 @@
+[package]
+name = "[[ project_slug ]]"
+version = "0.1.0"
+edition = "2024"
+rust-version = "[[ rust_msrv ]]"
+description = "[[ description ]]"
+[% if is_oss %]
+license = "[[ license ]]"
+[% endif %]
+[% if is_public %]
+repository = "https://github.com/[[ github_owner ]]/[[ project_slug ]]"
+[% endif %]
+[% if not publishes %]
+publish = false
+[% endif %]
+
+[dependencies]
+
+[dev-dependencies]
+proptest = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

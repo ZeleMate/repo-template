@@ -1,0 +1,7 @@
+# pnpm settings (pnpm 11+ reads these from pnpm-workspace.yaml).
+# Supply-chain cooldown: ignore versions published in the last 3 days (in minutes).
+minimumReleaseAge: 4320
+# Refuse to install a version whose publish trust level is lower than earlier versions'.
+trustPolicy: no-downgrade
+# Dependency install scripts are blocked by default; allowlist packages here when needed.
+onlyBuiltDependencies: []

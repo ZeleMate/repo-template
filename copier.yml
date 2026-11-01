@@ -1,0 +1,200 @@
+# Repo template — Copier configuration.
+# Delimiters are [[ ]] / [% %] so GitHub Actions' ${{ }} needs no escaping.
+_min_copier_version: "9.4"
+_subdirectory: template
+_answers_file: .copier-answers.yml
+_envops:
+  block_start_string: "[%"
+  block_end_string: "%]"
+  variable_start_string: "[["
+  variable_end_string: "]]"
+  comment_start_string: "[#"
+  comment_end_string: "#]"
+  keep_trailing_newline: true
+  trim_blocks: true
+  lstrip_blocks: true
+
+# ---------------------------------------------------------------- identity
+project_name:
+  type: str
+  help: Human-readable project name
+  validator: "[% if not project_name.strip() %]Required[% endif %]"
+
+project_slug:
+  type: str
+  help: Repository / package name (lowercase, dashes)
+  default: "[[ project_name.strip().lower().replace(' ', '-').replace('_', '-') ]]"
+  validator: >-
+    [% if project_slug != project_slug.lower() or not project_slug.replace('-', '').isalnum() %]Use lowercase letters, digits and dashes[% endif %]
+
+package_name:
+  type: str
+  help: Python import name
+  default: "[[ project_slug.replace('-', '_') ]]"
+  when: "[[ 'python' in languages ]]"
+
+description:
+  type: str
+  help: One-line description
+  default: ""
+
+author_name:
+  type: str
+  help: Author name
+
+author_email:
+  type: str
+  help: Author email (used in package metadata and SECURITY.md for private repos)
+
+github_owner:
+  type: str
+  help: GitHub user or organization that will own the repo
+
+# ---------------------------------------------------------------- shape
+languages:
+  type: str
+  help: Languages in this repo (one = files at the root; several = one folder each)
+  multiselect: true
+  choices:
+    Python: python
+    TypeScript: typescript
+    Rust: rust
+  default: [python]
+  validator: "[% if not languages %]Pick at least one[% endif %]"
+
+visibility:
+  type: str
+  help: Repo visibility (decides which GitHub security features are free)
+  choices: [public, private]
+  default: private
+
+github_plan:
+  type: str
+  help: Your GitHub plan (Pro is needed for rulesets and environments on private repos)
+  choices: [free, pro]
+  default: free
+
+license:
+  type: str
+  help: Licence
+  choices: [MIT, Apache-2.0, Proprietary]
+  default: "[% if visibility == 'public' %]MIT[% else %]Proprietary[% endif %]"
+
+agentic:
+  type: bool
+  help: Is this an agentic / LLM application? (adds threat model sections, agent policy, evals)
+  default: true
+
+publishes:
+  type: bool
+  help: Will you publish packages to PyPI / npm / crates.io?
+  default: false
+
+# ---------------------------------------------------------------- third-party services
+ai_reviewers:
+  type: str
+  help: AI PR reviewers to wire in (CodeRabbit is free on public repos only)
+  multiselect: true
+  choices:
+    "Claude Code GitHub Action (uses your Claude subscription)": claude
+    "CodeRabbit (GitHub App + .coderabbit.yaml)": coderabbit
+  default: "[% if visibility == 'public' %][claude, coderabbit][% else %][claude][% endif %]"
+
+quality_platform:
+  type: str
+  help: Code-quality platform (SonarQube Cloud is free and complete for public repos; private free plan is limited)
+  choices:
+    None: none
+    SonarQube Cloud: sonarqube-cloud
+  default: "[% if visibility == 'public' %]sonarqube-cloud[% else %]none[% endif %]"
+
+sonar_organization:
+  type: str
+  help: SonarQube Cloud organization key
+  default: "[[ github_owner | lower ]]"
+  when: "[[ quality_platform == 'sonarqube-cloud' ]]"
+
+# ---------------------------------------------------------------- toolchains
+python_version:
+  type: str
+  help: Minimum Python version
+  default: "3.13"
+  when: "[[ 'python' in languages ]]"
+
+python_type_checker:
+  type: str
+  help: Python type checker (both stable; reference projects are split)
+  choices: [pyright, mypy]
+  default: pyright
+  when: "[[ 'python' in languages ]]"
+
+node_version:
+  type: str
+  help: Node.js LTS major
+  choices: ["24", "26"]
+  default: "26"
+  when: "[[ 'typescript' in languages ]]"
+
+ts_linter:
+  type: str
+  help: TypeScript linter (ESLint + typescript-eslint is the default; Oxlint is faster)
+  choices: [eslint, oxlint]
+  default: eslint
+  when: "[[ 'typescript' in languages ]]"
+
+rust_toolchain:
+  type: str
+  help: Pinned Rust toolchain
+  default: "1.99.0"
+  when: "[[ 'rust' in languages ]]"
+
+rust_msrv:
+  type: str
+  help: Minimum supported Rust version (rust-version in Cargo.toml)
+  default: "1.97"
+  when: "[[ 'rust' in languages ]]"
+
+# ---------------------------------------------------------------- computed (not asked)
+multi_lang:
+  type: bool
+  default: "[[ languages | length > 1 ]]"
+  when: false
+py_dir:
+  type: str
+  default: "[% if languages | length > 1 %]python[% else %].[% endif %]"
+  when: false
+ts_dir:
+  type: str
+  default: "[% if languages | length > 1 %]typescript[% else %].[% endif %]"
+  when: false
+rs_dir:
+  type: str
+  default: "[% if languages | length > 1 %]rust[% else %].[% endif %]"
+  when: false
+is_public:
+  type: bool
+  default: "[[ visibility == 'public' ]]"
+  when: false
+has_governance:
+  type: bool
+  default: "[[ visibility == 'public' or github_plan == 'pro' ]]"
+  when: false
+is_oss:
+  type: bool
+  default: "[[ license != 'Proprietary' ]]"
+  when: false
+
+# ---------------------------------------------------------------- post-generation (local only)
+_tasks:
+  - command: chmod +x scripts/bootstrap-github.sh .claude/hooks/format.sh
+  - command: "cd '[[ py_dir ]]' && uv lock"
+    when: "[[ _copier_operation == 'copy' and 'python' in languages ]]"
+  - command: "cd '[[ ts_dir ]]' && pnpm install --lockfile-only"
+    when: "[[ _copier_operation == 'copy' and 'typescript' in languages ]]"
+  - command: "cd '[[ rs_dir ]]' && (command -v cargo >/dev/null && cargo generate-lockfile || echo 'cargo not found: run cargo generate-lockfile later')"
+    when: "[[ _copier_operation == 'copy' and 'rust' in languages ]]"
+
+_message_after_copy: |
+  Generated [[ project_name ]].
+  Next:  cd [[ _copier_conf.dst_path ]] && ./scripts/bootstrap-github.sh --dry-run
+  Then follow the manual checklist the script prints (also in docs/SETUP.md).

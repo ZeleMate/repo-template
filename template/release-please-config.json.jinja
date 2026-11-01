@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "include-component-in-tag": [[ 'true' if multi_lang else 'false' ]],
+  "packages": {
+[% for l in languages %]
+    "[[ {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir}[l] ]]": {
+      "release-type": "[[ {'python': 'python', 'typescript': 'node', 'rust': 'rust'}[l] ]]",
+      "package-name": "[[ project_slug ]]"[% if multi_lang %],
+      "component": "[[ l ]]"[% endif +%]
+    }[% if not loop.last %],[% endif +%]
+[% endfor %]
+  }
+}

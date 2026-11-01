@@ -1,0 +1,25 @@
+//! [[ project_name ]].
+
+/// Return a greeting. Replace with real code.
+#[must_use]
+pub fn greet(name: &str) -> String {
+    format!("Hello, {name}!")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::greet;
+    use proptest::prelude::*;
+
+    #[test]
+    fn greets_by_name() {
+        assert_eq!(greet("world"), "Hello, world!");
+    }
+
+    proptest! {
+        #[test]
+        fn always_contains_name(name in ".*") {
+            prop_assert!(greet(&name).contains(&name));
+        }
+    }
+}

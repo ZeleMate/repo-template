@@ -1,0 +1,58 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+[% if 'python' in languages %]
+
+  - package-ecosystem: uv
+    directory: /[[ '' if py_dir == '.' else py_dir ]]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+[% endif %]
+[% if 'typescript' in languages %]
+
+  - package-ecosystem: npm
+    directory: /[[ '' if ts_dir == '.' else ts_dir ]]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+[% endif %]
+[% if 'rust' in languages %]
+
+  - package-ecosystem: cargo
+    directory: /[[ '' if rs_dir == '.' else rs_dir ]]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+[% endif %]

@@ -1,0 +1,11 @@
+---
+paths:
+  - "**/*.rs"
+---
+
+# Rust rules
+
+- `unsafe` is forbidden by the crate lints. If you truly need it, stop and ask; it needs an ADR, Miri and fuzzing.
+- Clippy runs with `-D warnings`. Fix lints rather than `#[allow]`ing them; any `allow` needs a reason comment.
+- Return `Result` with a typed error; no `unwrap()`/`expect()` outside tests and `main`.
+- Use `cargo add`; new crates must pass `cargo deny check` (licences, advisories, sources).

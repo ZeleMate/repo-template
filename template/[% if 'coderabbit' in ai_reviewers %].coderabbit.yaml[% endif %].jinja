@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Requires the CodeRabbit GitHub App on this repo (free for public repos).
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  sequence_diagrams: false
+  assess_linked_issues: true
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_usernames: ["dependabot[bot]"]
+  path_filters:
+    - "!**/uv.lock"
+    - "!**/pnpm-lock.yaml"
+    - "!**/Cargo.lock"
+    - "!**/dist/**"
+    - "!**/CHANGELOG.md"
+  path_instructions:
+    - path: "**/*"
+      instructions: >-
+        Follow REVIEW.md in the repository root. Formatting, linting and types are enforced by CI,
+        so do not comment on them. Report only issues you can point to in the diff.
+    - path: ".github/workflows/**"
+      instructions: >-
+        Flag widened permissions, actions not pinned to a full commit SHA, pull_request_target,
+        and untrusted ${{ }} expressions used inside run steps.
+chat:
+  auto_reply: true

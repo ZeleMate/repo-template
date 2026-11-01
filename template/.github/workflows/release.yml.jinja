@@ -1,0 +1,170 @@
+[% macro out(dir, field) %][[ field if dir == '.' else dir ~ '--' ~ field ]][% endmacro %]
+name: Release
+
+# release-please keeps a release PR open from Conventional Commit titles; merging it tags and releases.
+# PRs opened with GITHUB_TOKEN do not trigger CI, so the release PR's ci-ok check never runs.
+# Fix: add a RELEASE_PLEASE_TOKEN secret (fine-grained PAT: contents + pull requests read/write on this repo).
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      any: ${{ steps.rp.outputs.releases_created }}
+[% for l in languages %]
+[% set d = {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir}[l] %]
+      [[ l ]]: ${{ steps.rp.outputs['[[ out(d, 'release_created') ]]'] }}
+      [[ l ]]_tag: ${{ steps.rp.outputs['[[ out(d, 'tag_name') ]]'] }}
+[% endfor %]
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
+        id: rp
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+[% if publishes %]
+[% if 'python' in languages %]
+
+  publish-python:
+    needs: release-please
+    if: needs.release-please.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+[% if has_governance %]
+    environment: release
+[% endif %]
+    permissions:
+      contents: read
+      id-token: write
+[% if is_public %]
+      attestations: write
+[% endif %]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: false
+      - run: uv build
+        working-directory: [[ py_dir ]]
+[% if is_public %]
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: "[[ py_dir ]]/dist/*"
+[% endif %]
+      # Trusted publishing (OIDC): register this repo + workflow as a trusted publisher on PyPI first.
+      # Produces PEP 740 attestations by default.
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
+        with:
+          packages-dir: [[ py_dir ]]/dist/
+[% endif %]
+[% if 'typescript' in languages %]
+
+  publish-npm:
+    needs: release-please
+    if: needs.release-please.outputs.typescript == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+[% if has_governance %]
+    environment: release
+[% endif %]
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: [[ ts_dir ]]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
+        with:
+          package_json_file: [[ ts_dir ]]/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "[[ node_version ]]"
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      # Trusted publishing (OIDC): configure this repo + workflow as a trusted publisher on npmjs.com first.
+      - run: npm publish --access public
+[% if not is_public %]
+        env:
+          NPM_CONFIG_PROVENANCE: "false"  # npm provenance is not supported from private repos
+[% endif %]
+[% endif %]
+[% if 'rust' in languages %]
+
+  publish-crate:
+    needs: release-please
+    if: needs.release-please.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+[% if has_governance %]
+    environment: release
+[% endif %]
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: [[ rs_dir ]]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup show active-toolchain || rustup toolchain install
+      # Trusted publishing (OIDC): configure the crate's trusted publisher on crates.io first.
+      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9  # v1.0.6
+        id: auth
+      - run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+[% endif %]
+[% endif %]
+
+  sbom:
+    needs: release-please
+    if: needs.release-please.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Attach SBOM to the new release(s)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAGS: >-
+[% for l in languages %]
+            ${{ needs.release-please.outputs.[[ l ]]_tag }}
+[% endfor %]
+        run: |
+          for tag in $TAGS; do
+            gh release upload "$tag" sbom.spdx.json --clobber --repo "$GITHUB_REPOSITORY"
+          done

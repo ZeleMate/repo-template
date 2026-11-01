@@ -1,0 +1,23 @@
+# Verifying releases
+
+[% if is_public %]
+Release artifacts carry signed build provenance (Sigstore), produced in GitHub Actions.
+
+```bash
+gh attestation verify <file> --repo [[ github_owner ]]/[[ project_slug ]]
+```
+[% endif %]
+[% if 'python' in languages %]
+
+**PyPI:** packages are uploaded with trusted publishing and carry PEP 740 attestations, visible on the PyPI file page.
+[% endif %]
+[% if 'typescript' in languages %]
+
+**npm:** packages are published with trusted publishing[% if is_public %] and npm provenance (`npm audit signatures` checks it)[% endif %].
+[% endif %]
+[% if 'rust' in languages %]
+
+**crates.io:** crates are published with crates.io trusted publishing (short-lived token from GitHub OIDC).
+[% endif %]
+
+Each GitHub release also has an SBOM (SPDX JSON) attached.

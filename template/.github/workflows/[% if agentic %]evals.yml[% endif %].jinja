@@ -1,0 +1,50 @@
+name: Evals
+
+# PRs touching prompts, tools or evals: harness check with a mock model (free, no secrets).
+# Nightly: real model against thresholds, only if EVAL_ANTHROPIC_API_KEY is set.
+on:
+  pull_request:
+    paths:
+      - "evals/**"
+      - "**/prompts/**"
+      - "**/tools/**"
+      - "docs/agent-policy.md"
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.EVAL_ANTHROPIC_API_KEY }}
+      EVAL_MODEL: anthropic/claude-sonnet-5-5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+      - name: Run evals
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = "pull_request" ] || [ -z "$ANTHROPIC_API_KEY" ]; then
+            uv run evals/run.py --mock
+          else
+            uv run evals/run.py --model "$EVAL_MODEL"
+          fi
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: eval-logs
+          path: logs/evals
+          retention-days: 14

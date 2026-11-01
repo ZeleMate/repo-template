@@ -1,0 +1,60 @@
+{
+  "name": "[[ project_slug ]]",
+  "version": "0.1.0",
+  "description": "[[ description ]]",
+[% if not publishes %]
+  "private": true,
+[% endif %]
+  "license": "[[ license if is_oss else 'UNLICENSED' ]]",
+  "author": "[[ author_name ]]",
+[% if is_public %]
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/[[ github_owner ]]/[[ project_slug ]].git"[% if multi_lang %],
+    "directory": "[[ ts_dir ]]"[% endif +%]
+  },
+[% endif %]
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=[[ node_version ]]"
+  },
+  "packageManager": "pnpm@12.15.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+[% if ts_linter == 'eslint' %]
+    "lint": "eslint .",
+[% else %]
+    "lint": "oxlint --deny-warnings .",
+[% endif %]
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+[% if ts_linter == 'eslint' %]
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "typescript-eslint": "^8.40.0",
+[% else %]
+    "oxlint": "^1.0.0",
+[% endif %]
+    "@types/node": "^[[ node_version ]].0.0",
+    "@vitest/coverage-v8": "^5.0.0",
+    "fast-check": "^4.0.0",
+    "prettier": "^3.6.0",
+    "typescript": "^6.0.0",
+    "vitest": "^5.0.0"
+  }
+}

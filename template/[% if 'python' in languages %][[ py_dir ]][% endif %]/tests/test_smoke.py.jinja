@@ -1,0 +1,13 @@
+from hypothesis import given
+from hypothesis import strategies as st
+
+from [[ package_name ]] import greet
+
+
+def test_greet() -> None:
+    assert greet("world") == "Hello, world!"
+
+
+@given(st.text())
+def test_greet_contains_name(name: str) -> None:
+    assert name in greet(name)

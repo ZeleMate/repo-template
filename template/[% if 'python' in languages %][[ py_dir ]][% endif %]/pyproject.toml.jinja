@@ -1,0 +1,75 @@
+[project]
+name = "[[ project_slug ]]"
+version = "0.1.0"
+description = "[[ description ]]"
+[% if not multi_lang %]
+readme = "README.md"
+[% endif %]
+requires-python = ">=[[ python_version ]]"
+[% if is_oss %]
+license = "[[ license ]]"
+[% endif %]
+authors = [{ name = "[[ author_name ]]", email = "[[ author_email ]]" }]
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=6",
+  "hypothesis>=6",
+  "diff-cover>=9",
+  "ruff>=0.15",
+[% if python_type_checker == 'pyright' %]
+  "pyright>=1.1.400",
+[% else %]
+  "mypy>=1.15",
+[% endif %]
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# Supply-chain cooldown: ignore releases published in the last 7 days.
+exclude-newer = "7 days"
+
+[tool.ruff]
+line-length = 100
+target-version = "py[[ python_version.replace('.', '') ]]"
+
+[tool.ruff.lint]
+select = [
+  "E", "W", "F",   # pycodestyle, pyflakes
+  "I",             # isort
+  "B",             # bugbear
+  "UP",            # pyupgrade
+  "S",             # flake8-bandit (security)
+  "SIM", "C4", "PT", "N", "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[% if python_type_checker == 'pyright' %]
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+[% else %]
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+[% endif %]
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["[[ package_name ]]"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true

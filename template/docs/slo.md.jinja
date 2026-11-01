@@ -1,0 +1,30 @@
+# Service levels and operations
+
+Only needed once something is deployed. Based on the Google SRE Workbook: start small and imperfect.
+
+## SLOs (≤ 5, 4-week rolling window)
+
+| SLI | Target | Measured by |
+|---|---|---|
+| Availability: successful requests / all requests | 99.5% | _uptime monitor / metrics_ |
+| Latency: requests under _X_ ms | 95% | _metrics_ |
+[% if agentic %]
+| Agent task success rate | _set after first evals_ | eval + production traces |
+| Cost per task | ≤ _$X_ | provider usage / traces |
+[% endif %]
+
+**Error-budget policy:** when the budget is spent, stop feature work and fix reliability until it recovers.
+
+## Observability
+
+- Errors: Sentry (free Developer plan) or equivalent.
+- Traces and metrics: OpenTelemetry → Grafana Cloud free tier (or any OTLP backend).
+- Logs: structured JSON with trace IDs.
+[% if agentic %]
+- Model calls: OpenTelemetry GenAI semantic conventions (still "Development" status, so pin versions). Prompt/response capture is **off** by default (`OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT=NO_CONTENT`); if you need model I/O for debugging (SP 800-218A RV.1.1), store it in a retention-limited store, not in span attributes.
+- Spend: provider-level spend caps per environment; treat Anthropic's `enforced_spend_limit_reached` 429 as non-retryable.
+[% endif %]
+
+## Incidents
+
+Write a blameless postmortem for user-visible outages, data loss, security incidents or a spent error budget: what happened, impact, timeline, root cause, what we'll change. Store under `docs/runbooks/postmortems/`.

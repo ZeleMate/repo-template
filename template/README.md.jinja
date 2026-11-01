@@ -1,0 +1,26 @@
+# [[ project_name ]]
+
+[[ description ]]
+
+## Development
+
+Toolchains: [% for l in languages %][% if l == 'python' %]Python [[ python_version ]]+ with [uv](https://docs.astral.sh/uv/)[% elif l == 'typescript' %]Node.js [[ node_version ]] LTS with pnpm[% else %]Rust [[ rust_toolchain ]] (pinned in `rust-toolchain.toml`)[% endif %][% if not loop.last %], [% endif %][% endfor %].
+
+```bash
+uvx pre-commit install        # git hooks: formatting, gitleaks, workflow linting
+```
+
+See [AGENTS.md](AGENTS.md) for the build, lint and test commands.
+
+## Docs
+
+- [Setup checklist](docs/SETUP.md)
+- [Architecture decisions](docs/decisions/)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+
+## Licence
+
+[% if is_oss %][[ license ]]. See [LICENSE](LICENSE).[% else %]Proprietary. All rights reserved.[% endif %]
+
