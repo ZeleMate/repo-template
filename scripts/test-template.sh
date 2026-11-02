@@ -33,6 +33,12 @@ lint_workflows() {
   check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -e '\[\[ ' -e '\[% ' \"$d\" | grep -v pnpm-lock"
 }
 
+check_evals() { # mock evals, as the evals workflow runs them on PRs; catches pins inside the uv cooldown
+  local d=$1
+  [ -f "$d/evals/run.py" ] && check "evals --mock" sh -c "cd \"$d\" && uv run evals/run.py --mock"
+  return 0
+}
+
 check_python() {
   local d=$1
   ( cd "$d"
@@ -66,7 +72,7 @@ check_rust() {
 
 echo "==> python, public, agentic, publishes, sonar + coderabbit"
 gen py -d languages='[python]' -d visibility=public -d agentic=true -d publishes=true
-lint_workflows "$OUT/py"; check_python "$OUT/py"
+lint_workflows "$OUT/py"; check_python "$OUT/py"; check_evals "$OUT/py"
 
 echo "==> typescript, private free, eslint, not agentic"
 gen ts -d languages='[typescript]' -d visibility=private -d agentic=false
@@ -83,7 +89,7 @@ lint_workflows "$OUT/rs"; check_rust "$OUT/rs"
 echo "==> python + typescript + rust, private pro, mypy, sonar, publishes"
 gen multi -d languages='[python, typescript, rust]' -d visibility=private -d github_plan=pro \
   -d python_type_checker=mypy -d quality_platform=sonarqube-cloud -d publishes=true
-lint_workflows "$OUT/multi"
+lint_workflows "$OUT/multi"; check_evals "$OUT/multi"
 check_python "$OUT/multi/python"; check_ts "$OUT/multi/typescript"; check_rust "$OUT/multi/rust"
 
 echo
