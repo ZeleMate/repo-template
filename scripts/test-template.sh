@@ -17,7 +17,7 @@ check() { # name, command...
 gen() { # dir, extra copier -d args...
   local dir=$1; shift
   rm -rf "${OUT:?}/$dir"
-  uvx copier copy --trust --defaults --quiet \
+  uvx copier copy --trust --defaults --quiet --vcs-ref HEAD \
     -d project_name="Demo App" -d author_name="Test Author" -d author_email="test@example.com" \
     -d github_owner=example "$@" "$TEMPLATE" "$OUT/$dir" >"$OUT/.log" 2>&1 || { cat "$OUT/.log"; return 1; }
   git -C "$OUT/$dir" init -q -b main
