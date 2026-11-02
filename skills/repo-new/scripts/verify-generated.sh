@@ -22,7 +22,11 @@ multi=0; [ "$(wc -w <<<"$langs")" -gt 1 ] && multi=1
 dir_for() { if [ "$multi" = 1 ]; then echo "$REPO/$1"; else echo "$REPO"; fi; }
 
 echo "==> repo-wide ($REPO; languages: $langs)"
-command -v actionlint >/dev/null && check "actionlint" sh -c "cd \"$REPO\" && actionlint -no-color"
+if command -v actionlint >/dev/null; then
+  # Without file arguments actionlint needs a git project, which a fresh scaffold isn't yet.
+  cfg=""; [ -f "$REPO/.github/actionlint.yaml" ] && cfg="-config-file .github/actionlint.yaml"
+  check "actionlint" sh -c "cd \"$REPO\" && actionlint -no-color $cfg .github/workflows/*.yml"
+fi
 command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity medium "$REPO/.github/workflows"
 check "json valid" sh -c "for f in \"$REPO\"/.claude/settings.json \"$REPO\"/.github/rulesets/main.json \"$REPO\"/release-please-config.json \"$REPO\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
 if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
@@ -32,6 +36,12 @@ else
   echo "    skip pre-commit (not a git repo yet; the bootstrap script runs git init)"
 fi
 check "no unrendered template tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=target --exclude-dir=.git -e '\[\[ ' -e '\[% ' \"$REPO\" | grep -v pnpm-lock"
+
+if [ -f "$REPO/evals/run.py" ]; then
+  # Same command the evals workflow runs on PRs; also catches pins newer than the uv cooldown.
+  echo "==> evals (mock)"
+  check "evals --mock" sh -c "cd \"$REPO\" && uv run evals/run.py --mock"
+fi
 
 for lang in $langs; do
   case $lang in
@@ -64,6 +74,12 @@ for lang in $langs; do
         [ "$fail" = 0 ] ) || fail=1 ;;
   esac
 done
+
+email=$(grep -E '^author_email:' "$ANSWERS" | sed 's/^author_email: *//')
+case "$email" in
+  *@example.com|*@example.org|*.test|*noreply*|"")
+    echo; echo "    note: author_email '$email' is the vulnerability-report contact in SECURITY.md; use a monitored address" ;;
+esac
 
 rm -f "$LOG"
 echo
