@@ -7,3 +7,6 @@ __pycache__/
 *.key
 .venv/
 node_modules/
+# skill eval output
+skills/*/evals/results/
+*-workspace/

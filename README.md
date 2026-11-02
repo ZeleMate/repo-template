@@ -4,7 +4,27 @@ A [Copier](https://copier.readthedocs.io/) template that gives every new repo th
 
 The choices come from the research report *Repo standards for agentic stacks*. Each one is backed by a standard (OpenSSF, NIST SSDF, SLSA, OWASP) or by what major reference projects actually run.
 
-## Quick start
+## Quick start with Claude Code (recommended)
+
+This repo is also a Claude Code plugin, `repo-standards`. Its skills run the whole pipeline below from a conversation, so nobody has to learn Copier's flags or the setup checklist:
+
+```
+/plugin install repo-standards --marketplace ZeleMate/repo-template
+```
+
+(On Claude Code older than 2.1.275: `/plugin marketplace add ZeleMate/repo-template`, then `/plugin install repo-standards@repo-template`.) The template repo is private, so you need read access to it and `gh auth setup-git` (or SSH) for git to fetch it.
+
+| Skill | Use it to | Say something like |
+|---|---|---|
+| `repo-new` | Generate a new repo: asks the questions in chat, runs Copier pinned to the latest tag, runs CI's checks locally | "start a new TypeScript + Rust project called ledger, public, publishes to npm" |
+| `repo-github-setup` | Create the GitHub repo and apply settings (dry run first), walk the manual steps, and audit live settings for drift | "get it onto GitHub and finish setup" / "have this repo's settings drifted?" |
+| `repo-adopt` | Retrofit an existing repo: render the template beside it and merge file by file, keeping the project's code and CI jobs | "bring ./billing-service up to our template standard" |
+| `repo-template-update` | Pull a newer template version into a generated repo, resolve conflicts, open a PR | "there's a template update issue, handle it" |
+| `repo-template-maintain` | Work on the template itself: pin refresh, new questions or jobs, `test-template.sh`, tagging a release | "do the quarterly pin bump" |
+
+The skills live in `skills/`; each has test cases in `evals/` that `claude plugin eval skills/<name>` can run.
+
+## Quick start by hand
 
 ```bash
 # 1. Generate (answers drive everything below)
@@ -87,6 +107,7 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 - Tag releases (`v1.2.0`). `copier update` and the weekly check use tags.
 - **Bump pinned versions deliberately.** Action SHAs, hook revs, the gitleaks/OSV-Scanner checksums and Semgrep live in the template files. Dependabot keeps them current in generated repos; update the template itself quarterly.
 - **Test changes:** `./scripts/test-template.sh` generates every language combination and runs actionlint, zizmor and the real toolchains on the output.
+- **Keep the skills in step.** A new question goes in `skills/repo-new/references/choosing-answers.md` as well as here; a new secret or GitHub setting goes in `docs/SETUP.md.jinja`, the bootstrap script, and `skills/repo-github-setup/scripts/audit-github.sh`. Bump `.claude-plugin/plugin.json`'s version when skills change.
 
 ## Facts to re-check before relying on them
 
