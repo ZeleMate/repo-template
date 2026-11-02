@@ -106,7 +106,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: uvx diff-cover@11.0.0coverage/cobertura-coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
+        run: uvx diff-cover@11.0.0 coverage/cobertura-coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
       - run: pnpm run build
 [% if quality_platform == 'sonarqube-cloud' %]
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
