@@ -58,7 +58,7 @@ Repo-wide hooks: `uvx pre-commit run --all-files` (or `prek run --all-files`).
 
 - Add a dependency only after checking the package exists on the official registry, is maintained, and is the one you meant. AI-suggested package names are sometimes invented ("slopsquatting").
 - Never edit lockfiles by hand. Use the package manager (`uv add`, `pnpm add`, `cargo add`).
-- New releases are held back by a cooldown (7 days for Python, 3 for npm). Do not bypass it.
+- New releases are held back by a cooldown (7 days). Do not bypass it.
 
 ## Security rules
 

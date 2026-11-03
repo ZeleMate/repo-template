@@ -7,6 +7,10 @@ on:
 
 permissions: {}
 
+env:
+  # Fail instead of silently re-locking when a manifest and its lockfile disagree.
+  UV_LOCKED: "1"
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -28,17 +32,23 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       # Language-toolchain hooks run in the language jobs; gitleaks scans full history in security.yml.
-      - run: uvx pre-commit@4.7.0 run --all-files --show-diff-on-failure
+      - run: uv run --project .github/tools pre-commit run --all-files --show-diff-on-failure
         env:
           SKIP: gitleaks,prettier,cargo-fmt
 [% if 'python' in languages %]
 
+[% set py_lo = python_version.split('.')[1] | int %]
   python:
-    name: python
+    name: python (${{ matrix.python }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every supported minor version, from requires-python up.
+        python: [[ '[' ]][% for m in range(py_lo, [py_lo, 14] | max + 1) %]"3.[[ m ]]"[% if not loop.last %], [% endif %][% endfor %][[ ']' ]]
     defaults:
       run:
         working-directory: [[ py_dir ]]
@@ -51,6 +61,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "[[ py_dir ]]/uv.lock"
+          python-version: ${{ matrix.python }}
       - run: uv sync --locked
       - run: uv run ruff format --check .
       - run: uv run ruff check .
@@ -61,12 +72,13 @@ jobs:
 [% endif %]
       - run: uv run pytest --cov --cov-report=xml --cov-report=term
       - name: Changed-line coverage ≥ 90%
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.python == '3.[[ py_lo ]]'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: uv run diff-cover coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
 [% if quality_platform == 'sonarqube-cloud' %]
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+      - if: matrix.python == '3.[[ py_lo ]]'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: coverage-python
           path: [[ py_dir ]]/coverage.xml
@@ -97,6 +109,7 @@ jobs:
           node-version: "[[ node_version ]]"
           cache: pnpm
           cache-dependency-path: [[ ts_dir ]]/pnpm-lock.yaml
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
       - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
       - run: pnpm run lint
@@ -106,7 +119,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: uvx diff-cover@11.0.0 coverage/cobertura-coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
+        run: uv run --project "$GITHUB_WORKSPACE/.github/tools" diff-cover coverage/cobertura-coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
       - run: pnpm run build
 [% if quality_platform == 'sonarqube-cloud' %]
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2

@@ -109,7 +109,6 @@ for s in "${want[@]}"; do
 done
 
 echo "==> not checkable from the API (confirm by hand)"
-[ "$CLAUDE" = yes ] && skip "Claude GitHub App installed on the repo"
 [ "$CODERABBIT" = yes ] && skip "CodeRabbit GitHub App installed on the repo"
 [ "$SONAR" = yes ] && skip "SonarQube Cloud project imported with Automatic Analysis off"
 [ "$PUBLISHES" = yes ] && skip "trusted publisher registered on each registry"

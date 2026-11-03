@@ -10,3 +10,11 @@ node_modules/
 # skill eval output
 skills/*/evals/results/
 *-workspace/
+
+# Local research material (not part of the template)
+reports/
+research_notes/
+
+# Local Claude Code state (agent worktrees, personal settings)
+/.claude/worktrees/
+/.claude/settings.local.json

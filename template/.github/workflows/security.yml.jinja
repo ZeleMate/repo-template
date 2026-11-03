@@ -10,6 +10,9 @@ on:
 
 permissions: {}
 
+env:
+  UV_LOCKED: "1"
+
 jobs:
   sast:
     name: sast (semgrep)
@@ -24,10 +27,14 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
       # Semgrep Community Edition runs entirely in CI; no code leaves the runner except rule downloads.
       # Add project rules under .semgrep/ and they are picked up automatically.
-      - run: |
+      - env:
+          # semgrep-core can segfault in its io_uring backend on ubuntu-24.04
+          # runners; Eio's portable backend avoids it.
+          EIO_BACKEND: posix
+        run: |
           configs=(--config p/default)
           [ -d .semgrep ] && configs+=(--config .semgrep)
-          uvx semgrep@1.183.0 scan "${configs[@]}" --error --metrics off
+          uv run --project .github/tools semgrep scan "${configs[@]}" --error --metrics off --disable-version-check
 [% if is_public %]
     # CodeQL runs via GitHub "default setup" (enabled by scripts/bootstrap-github.sh), not in this file.
 [% endif %]

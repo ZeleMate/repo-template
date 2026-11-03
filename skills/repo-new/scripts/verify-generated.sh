@@ -31,7 +31,13 @@ command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity m
 check "json valid" sh -c "for f in \"$REPO\"/.claude/settings.json \"$REPO\"/.github/rulesets/main.json \"$REPO\"/release-please-config.json \"$REPO\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
 if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
   # pre-commit only sees tracked or staged files; stage without committing.
-  check "pre-commit hooks" sh -c "cd \"$REPO\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uvx pre-commit@4.7.0 run --all-files"
+  if [ -f "$REPO/.github/tools/uv.lock" ]; then
+    # v0.2.0+: the hash-locked CI tools, exactly as CI runs them.
+    check "pre-commit hooks" sh -c "cd \"$REPO\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --project .github/tools pre-commit run --all-files"
+    check "semgrep (as in security.yml)" sh -c "cd \"$REPO\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
+  else
+    check "pre-commit hooks" sh -c "cd \"$REPO\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uvx pre-commit@4.7.0 run --all-files"
+  fi
 else
   echo "    skip pre-commit (not a git repo yet; the bootstrap script runs git init)"
 fi
