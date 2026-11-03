@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: adopt-poetry-library
+expected_outcome: |
+  The template's baseline is merged into ./acme-utils on a branch: the project's code, tests and
+  README survive, the template placeholder code is not added, the docs-links CI job is kept,
+  a .copier-answers.yml exists for future updates, the Poetry-vs-uv difference is raised with the
+  user rather than silently ignored, and nothing is pushed.
+context:
+  scaffold_script: place-files.sh

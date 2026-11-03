@@ -1,0 +1,14 @@
+{
+  "name": "repo-template",
+  "description": "Claude Code skills for the repo-template production baseline: scaffold, adopt, GitHub setup and audit, template updates and template maintenance.",
+  "owner": {
+    "name": "Zelenyiánszki Máté"
+  },
+  "plugins": [
+    {
+      "name": "repo-standards",
+      "source": "./",
+      "description": "Skills that set up and maintain the repo-template production baseline (CI, security scanning, releases, AI review, agent config)."
+    }
+  ]
+}

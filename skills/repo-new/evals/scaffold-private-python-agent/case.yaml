@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: scaffold-private-python-agent
+expected_outcome: |
+  A Python-only repo generated from the repo template in ./invoice-agent with the user's answers
+  (private, free plan, agentic, not publishing, owner acme-labs), verified locally, with a warning
+  that private + Free means the ci-ok ruleset can't be enforced, and nothing created on GitHub.

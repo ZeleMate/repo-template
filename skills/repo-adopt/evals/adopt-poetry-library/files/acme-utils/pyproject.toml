@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "acme-utils"
+version = "0.3.0"
+description = "Small helpers shared by Acme services"
+authors = ["Ada Lovelace <ada@example.com>"]
+packages = [{ include = "acme_utils", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

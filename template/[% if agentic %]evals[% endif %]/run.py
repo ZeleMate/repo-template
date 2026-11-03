@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["inspect-ai==0.3.287", "anthropic>=0.70"]
+# dependencies = ["inspect-ai==0.3.285", "anthropic>=0.70"]
 # ///
 """Run eval suites and fail if a suite scores below its threshold.
 
