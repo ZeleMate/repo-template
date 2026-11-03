@@ -19,3 +19,11 @@ _Avoid_: thin caller, stub workflow, wrapper
 **Central workflow repo**:
 A single repo outside the template that hosts reusable workflows (and shared policy such as an update preset) which generated repos call by reference.
 _Avoid_: `.github` repo (that name is one possible implementation), shared repo
+
+**Copied workflow**:
+A workflow the template writes into a generated repo in full, owned and edited there, and refreshed only through `copier update`.
+_Avoid_: local workflow, vendored workflow
+
+**Merge gate**:
+The single required status check that decides whether a generated repo's change is green; it belongs to the caller workflow, not the central workflow repo.
+_Avoid_: ci-ok (that is its job name), required check, status gate
