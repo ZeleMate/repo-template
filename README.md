@@ -46,7 +46,7 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 
 | Area | Default | Alternatives you can swap in |
 |---|---|---|
-| CI | GitHub Actions. Every action is pinned to a commit SHA, `permissions: {}` by default, and a single `ci-ok` required check | — |
+| CI | GitHub Actions. Every action is pinned to a commit SHA, `permissions: {}` by default, and a single `ci-ok` required check (pinned to the GitHub Actions app). Python runs on every supported minor version. CI tools (Semgrep, pre-commit, diff-cover, Copier) are locked with hashes in `.github/tools/uv.lock` | — |
 | Workflow linting | zizmor + actionlint (pre-commit and CI) | — |
 | Static analysis (security) | **Public:** CodeQL default setup + Semgrep CE. **Private:** Semgrep CE in CI | Semgrep AppSec Platform free tier (10 repos, cross-file); Opengrep (LGPL fork) |
 | Code quality dashboard | SonarQube Cloud, opt-in. On by default for public repos, where the open-source plan is free and complete | Qlty (free tier); SonarQube Server Community Build (self-hosted) |
@@ -56,12 +56,12 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 | Dependency updates | Dependabot, grouped weekly, 7-day cooldown (14 for majors) | Renovate (`minimumReleaseAge`) |
 | Releases | release-please from Conventional Commit PR titles; SBOM (SPDX) attached | changesets for pnpm monorepos |
 | Publishing | OIDC trusted publishing: PyPI (PEP 740 attestations), npm (provenance on public), crates.io | — |
-| AI review | Claude Code Action (runs on your Claude subscription) and/or CodeRabbit (free on public repos) | GitHub Copilot code review (enable via ruleset; billed per review); Qodo PR-Agent (MIT, your own API key) |
+| AI review | Claude Code Action (runs on your Claude subscription; posts with the job's own token, so no Claude GitHub App) and/or CodeRabbit (free on public repos) | GitHub Copilot code review (enable via ruleset; billed per review); Qodo PR-Agent (MIT, your own API key) |
 | Spec conformance | **Custom:** `spec-review` skill + read-only `code-reviewer` subagent + `REVIEW.md` | Nothing on the market does this by default |
 | Agent config | `AGENTS.md` (canonical) + `CLAUDE.md` importing it; `.claude/settings.json` deny rules + formatter hook | — |
 | Agentic app safety | Threat model keyed to OWASP LLM Top 10 2026 + Agentic Top 10; agent policy; Inspect AI evals (mock on PRs, real model nightly) | promptfoo |
 | Python | uv + `uv.lock` (7-day `exclude-newer`), Ruff, pyright/mypy strict, pytest + Hypothesis, coverage | — |
-| TypeScript | pnpm (3-day `minimumReleaseAge`, `trustPolicy`), ESLint + typescript-eslint strict / Oxlint, Prettier, Vitest + fast-check | — |
+| TypeScript | pnpm (7-day `minimumReleaseAge`, `trustPolicy`), ESLint + typescript-eslint strict / Oxlint, Prettier, Vitest + fast-check | — |
 | Rust | pinned `rust-toolchain.toml`, clippy `-D warnings`, nextest, cargo-deny, proptest, `unsafe` forbidden | — |
 | Coverage | 80% overall (Badge silver), **90% on changed lines** in PRs (diff-cover) | Codecov |
 | Docs | MADR ADRs (incl. the solo-review exception), threat model, SECURITY.md (OpenSSF template), dependency and secrets policy, SLOs, runbooks | — |

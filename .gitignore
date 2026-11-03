@@ -11,3 +11,7 @@ node_modules/
 # Local research material (not part of the template)
 reports/
 research_notes/
+
+# Local Claude Code state (agent worktrees, personal settings)
+/.claude/worktrees/
+/.claude/settings.local.json

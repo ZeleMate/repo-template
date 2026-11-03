@@ -64,6 +64,7 @@ NIST SP 800-218A tasks covered: PW.1.1 (this section), PW.4.4 (pinned models/MCP
 | Risk | Why accepted | Revisit |
 |---|---|---|
 | No non-author review | Solo maintainer (ADR 0002) | When a second maintainer joins |
+| Claude Code's `Read` deny rules for `.env*` and key files don't stop shell commands (`cat`, `python -c`) reading them | A `Bash(...)` deny list can't cover every way to read a file; Claude Code's sandbox is the real boundary | When the sandbox is enabled for this repo |
 [% if not is_public and github_plan == 'free' %]
 | No server-side rulesets, CodeQL or secret scanning | Private repo on GitHub Free | If the repo goes public or the plan changes |
 [% endif %]

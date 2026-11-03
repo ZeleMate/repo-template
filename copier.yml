@@ -187,6 +187,8 @@ is_oss:
 # ---------------------------------------------------------------- post-generation (local only)
 _tasks:
   - command: chmod +x scripts/bootstrap-github.sh .claude/hooks/format.sh
+  - command: uv lock --project .github/tools
+    when: "[[ _copier_operation == 'copy' ]]"
   - command: "cd '[[ py_dir ]]' && uv lock"
     when: "[[ _copier_operation == 'copy' and 'python' in languages ]]"
   - command: "cd '[[ ts_dir ]]' && pnpm install --lockfile-only"
