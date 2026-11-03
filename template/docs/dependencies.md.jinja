@@ -1,7 +1,7 @@
 # Dependency policy
 
 - **Lockfiles are committed** and CI installs from them only ([% for l in languages %][% if l == 'python' %]`uv sync --locked`[% elif l == 'typescript' %]`pnpm install --frozen-lockfile`[% else %]`cargo … --locked`[% endif %][% if not loop.last %], [% endif %][% endfor %]).
-- **Cooldown before adopting new releases.** Dependabot waits 7 days (14 for majors); security updates are not delayed.[% if 'python' in languages %] uv ignores releases newer than 7 days (`exclude-newer`).[% endif %][% if 'typescript' in languages %] pnpm ignores releases newer than 3 days (`minimumReleaseAge`) and blocks install scripts unless allowlisted.[% endif +%]
+- **Cooldown before adopting new releases.** Dependabot waits 7 days (14 for majors); security updates are not delayed.[% if 'python' in languages %] uv ignores releases newer than 7 days (`exclude-newer`).[% endif %][% if 'typescript' in languages %] pnpm ignores releases newer than 7 days (`minimumReleaseAge`) and blocks install scripts unless allowlisted.[% endif +%]
 - **Scanning:** OSV-Scanner on every PR and weekly; Dependabot alerts and malware alerts[% if 'rust' in languages %]; `cargo deny check` for advisories, licences and sources[% endif %].
 - **Fix timelines:** critical/high within 7 days, medium within 60 days, low at the next routine update.
 - **Adding a dependency:** confirm it exists on the official registry, is maintained, has a compatible licence, and is worth its weight. Prefer the standard library.

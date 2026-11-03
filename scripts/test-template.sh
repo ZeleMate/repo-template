@@ -7,11 +7,12 @@ set -euo pipefail
 TEMPLATE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$(mktemp -d)}"
 mkdir -p "$OUT"
-fail=0
+rm -f "$OUT/.failed"
 
 check() { # name, command...
   local name=$1; shift
-  if "$@" >"$OUT/.log" 2>&1; then echo "    ok   $name"; else echo "    FAIL $name"; sed 's/^/         /' "$OUT/.log" | tail -25; fail=1; fi
+  # Failures are recorded in a file, because language checks run in subshells.
+  if "$@" >"$OUT/.log" 2>&1; then echo "    ok   $name"; else echo "    FAIL $name"; sed 's/^/         /' "$OUT/.log" | tail -25; touch "$OUT/.failed"; fi
 }
 
 gen() { # dir, extra copier -d args...
@@ -29,7 +30,9 @@ lint_workflows() {
   command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity medium "$d/.github/workflows"
   check "bootstrap syntax" bash -n "$d/scripts/bootstrap-github.sh"
   check "json valid" sh -c "for f in \"$d\"/.claude/settings.json \"$d\"/.github/rulesets/main.json \"$d\"/release-please-config.json \"$d\"/.release-please-manifest.json; do python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
-  check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uvx pre-commit@4.7.0 run --all-files"
+  check "ci tools lock" uv lock --check --project "$d/.github/tools"
+  check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --project .github/tools pre-commit run --all-files"
+  check "semgrep (as in security.yml)" sh -c "cd \"$d\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
   check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -e '\[\[ ' -e '\[% ' \"$d\" | grep -v pnpm-lock"
 }
 
@@ -87,4 +90,4 @@ lint_workflows "$OUT/multi"
 check_python "$OUT/multi/python"; check_ts "$OUT/multi/typescript"; check_rust "$OUT/multi/rust"
 
 echo
-[ "$fail" = 0 ] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }
+[ ! -e "$OUT/.failed" ] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }
