@@ -72,6 +72,7 @@ if [ "$VIS" = public ]; then
   expect "push protection" "$(jqr .security_and_analysis.secret_scanning_push_protection.status)" enabled
   expect "private vulnerability reporting" "$(api "repos/$FULL/private-vulnerability-reporting" | val .enabled)" true
   expect "CodeQL default setup" "$(api "repos/$FULL/code-scanning/default-setup" | val .state)" configured
+  expect "fork PR workflow approval" "$(api "repos/$FULL/actions/permissions/fork-pr-contributor-approval" | val .approval_policy)" all_external_contributors
 fi
 
 echo "==> ruleset"

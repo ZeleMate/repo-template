@@ -82,6 +82,8 @@ if [ "$VISIBILITY" = public ]; then
 JSON
   api -X PUT "repos/$FULL/private-vulnerability-reporting"
   api -X PATCH "repos/$FULL/code-scanning/default-setup" -f state=configured -f query_suite=default
+  say "Fork PRs: workflows from every outside contributor wait for approval"
+  api -X PUT "repos/$FULL/actions/permissions/fork-pr-contributor-approval" -f approval_policy=all_external_contributors
 else
   say "Private repo: GitHub code/secret scanning need a paid org add-on; Semgrep, OSV-Scanner and Gitleaks run in CI instead"
 fi
