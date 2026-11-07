@@ -17,7 +17,7 @@ A short workflow in a generated repo whose only job is to invoke a central workf
 _Avoid_: thin caller, stub workflow, wrapper
 
 **Central workflow repo**:
-A single repo outside the template that hosts reusable workflows (and shared policy such as an update preset) which generated repos call by reference.
+A single repo outside the template that hosts reusable workflows which generated repos call by reference.
 _Avoid_: `.github` repo (that name is one possible implementation), shared repo
 
 **Copied workflow**:
