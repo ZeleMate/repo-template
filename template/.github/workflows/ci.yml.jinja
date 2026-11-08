@@ -32,7 +32,7 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       # Language-toolchain hooks run in the language jobs; gitleaks scans full history in security.yml.
-      - run: uv run --project .github/tools pre-commit run --all-files --show-diff-on-failure
+      - run: uv run --no-build --project .github/tools pre-commit run --all-files --show-diff-on-failure
         env:
           SKIP: gitleaks,prettier,cargo-fmt
 [% if 'python' in languages %]
@@ -111,7 +111,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: uv run --project "$GITHUB_WORKSPACE/.github/tools" diff-cover coverage/cobertura-coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
+        run: uv run --no-build --project "$GITHUB_WORKSPACE/.github/tools" diff-cover coverage/cobertura-coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
       - run: pnpm run build
 [% endif %]
 [% if 'rust' in languages %]

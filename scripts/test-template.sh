@@ -38,7 +38,7 @@ lint_workflows() {
 
 check_evals() { # mock evals, as the evals workflow runs them on PRs; catches pins inside the uv cooldown
   local d=$1
-  [ -f "$d/evals/run.py" ] && check "evals --mock" sh -c "cd \"$d\" && uv run evals/run.py --mock"
+  [[ -f "$d/evals/run.py" ]] && check "evals --mock" sh -c "cd \"$d\" && uv run evals/run.py --mock"
   return 0
 }
 
@@ -96,4 +96,4 @@ lint_workflows "$OUT/multi"; check_evals "$OUT/multi"
 check_python "$OUT/multi/python"; check_ts "$OUT/multi/typescript"; check_rust "$OUT/multi/rust"
 
 echo
-[ ! -e "$OUT/.failed" ] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }
+[[ ! -e "$OUT/.failed" ]] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }

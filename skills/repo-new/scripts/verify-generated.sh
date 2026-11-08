@@ -7,7 +7,7 @@ set -uo pipefail
 
 REPO="$(cd "${1:-.}" && pwd)"
 ANSWERS="$REPO/.copier-answers.yml"
-[ -f "$ANSWERS" ] || { echo "No .copier-answers.yml in $REPO; is this a repo-template repo?"; exit 2; }
+[[ -f "$ANSWERS" ]] || { echo "No .copier-answers.yml in $REPO; is this a repo-template repo?"; exit 2; }
 LOG="$(mktemp)"
 fail=0
 
@@ -16,22 +16,22 @@ check() { # name, command...
   if "$@" >"$LOG" 2>&1; then echo "    ok   $name"; else echo "    FAIL $name"; sed 's/^/         /' "$LOG" | tail -25; fail=1; fi
 }
 
-langs=$(uvx --quiet --from pyyaml python -c 'import sys, yaml; print(" ".join(yaml.safe_load(open(sys.argv[1]))["languages"]))' "$ANSWERS")
-[ -z "$langs" ] && { echo "Could not read languages from $ANSWERS"; exit 2; }
-multi=0; [ "$(wc -w <<<"$langs")" -gt 1 ] && multi=1
-dir_for() { if [ "$multi" = 1 ]; then echo "$REPO/$1"; else echo "$REPO"; fi; }
+langs=$(uvx --no-build --quiet --from pyyaml python -c 'import sys, yaml; print(" ".join(yaml.safe_load(open(sys.argv[1]))["languages"]))' "$ANSWERS")
+[[ -z "$langs" ]] && { echo "Could not read languages from $ANSWERS"; exit 2; }
+multi=0; [[ "$(wc -w <<<"$langs")" -gt 1 ]] && multi=1
+dir_for() { if [[ "$multi" = 1 ]]; then echo "$REPO/$1"; else echo "$REPO"; fi; }
 
 echo "==> repo-wide ($REPO; languages: $langs)"
 if command -v actionlint >/dev/null; then
   # Without file arguments actionlint needs a git project, which a fresh scaffold isn't yet.
-  cfg=""; [ -f "$REPO/.github/actionlint.yaml" ] && cfg="-config-file .github/actionlint.yaml"
+  cfg=""; [[ -f "$REPO/.github/actionlint.yaml" ]] && cfg="-config-file .github/actionlint.yaml"
   check "actionlint" sh -c "cd \"$REPO\" && actionlint -no-color $cfg .github/workflows/*.yml"
 fi
 command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity medium "$REPO/.github/workflows"
 check "json valid" sh -c "for f in \"$REPO\"/.claude/settings.json \"$REPO\"/.github/rulesets/main.json \"$REPO\"/release-please-config.json \"$REPO\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
 if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
   # pre-commit only sees tracked or staged files; stage without committing.
-  if [ -f "$REPO/.github/tools/uv.lock" ]; then
+  if [[ -f "$REPO/.github/tools/uv.lock" ]]; then
     # v0.2.0+: the hash-locked CI tools, exactly as CI runs them.
     check "pre-commit hooks" sh -c "cd \"$REPO\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --project .github/tools pre-commit run --all-files"
     grep -q semgrep "$REPO/.github/workflows/security.yml" && check "semgrep (as in security.yml)" sh -c "cd \"$REPO\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
@@ -43,7 +43,7 @@ else
 fi
 check "no unrendered template tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=target --exclude-dir=.git -e '\[\[ ' -e '\[% ' \"$REPO\" | grep -v pnpm-lock"
 
-if [ -f "$REPO/evals/run.py" ]; then
+if [[ -f "$REPO/evals/run.py" ]]; then
   # Same command the evals workflow runs on PRs; also catches pins newer than the uv cooldown.
   echo "==> evals (mock)"
   check "evals --mock" sh -c "cd \"$REPO\" && uv run evals/run.py --mock"
@@ -59,7 +59,7 @@ for lang in $langs; do
         check "ruff check" uv run ruff check .
         if grep -q pyright pyproject.toml; then check "pyright" uv run pyright; else check "mypy" uv run mypy; fi
         check "pytest" uv run pytest --cov -q
-        [ "$fail" = 0 ] ) || fail=1 ;;
+        [[ "$fail" = 0 ]] ) || fail=1 ;;
     typescript)
       d=$(dir_for typescript); echo "==> typescript ($d)"
       ( cd "$d"
@@ -69,7 +69,7 @@ for lang in $langs; do
         check "typecheck" pnpm run -s typecheck
         check "vitest" pnpm run -s test:coverage
         check "build" pnpm run -s build
-        [ "$fail" = 0 ] ) || fail=1 ;;
+        [[ "$fail" = 0 ]] ) || fail=1 ;;
     rust)
       d=$(dir_for rust); echo "==> rust ($d)"
       if ! command -v cargo >/dev/null; then echo "    skip (cargo not installed)"; continue; fi
@@ -77,7 +77,7 @@ for lang in $langs; do
         check "cargo fmt" cargo fmt --check
         check "clippy" cargo clippy --all-targets -- -D warnings
         check "cargo test" cargo test
-        [ "$fail" = 0 ] ) || fail=1 ;;
+        [[ "$fail" = 0 ]] ) || fail=1 ;;
   esac
 done
 
@@ -89,4 +89,4 @@ esac
 
 rm -f "$LOG"
 echo
-if [ "$fail" = 0 ]; then echo "ALL CHECKS PASSED"; else echo "SOME CHECKS FAILED"; exit 1; fi
+if [[ "$fail" = 0 ]]; then echo "ALL CHECKS PASSED"; else echo "SOME CHECKS FAILED"; exit 1; fi
