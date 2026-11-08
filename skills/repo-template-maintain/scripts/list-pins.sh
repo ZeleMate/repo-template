@@ -6,11 +6,11 @@ set -uo pipefail
 
 ROOT="$(cd "${1:-.}" && pwd)"
 cd "$ROOT" || exit 2
-[ -f copier.yml ] || { echo "$ROOT has no copier.yml; pass the template root"; exit 2; }
+[[ -f copier.yml ]] || { echo "$ROOT has no copier.yml; pass the template root"; exit 2; }
 
 latest() { gh api "repos/$1/releases/latest" --jq .tag_name 2>/dev/null || gh api "repos/$1/tags" --jq '.[0].name' 2>/dev/null || echo "?"; }
 row() { # kind, name, current, latest, where
-  local flag=""; [ "${3#v}" != "${4#v}" ] && [ "$4" != "?" ] && [ "$4" != "-" ] && flag="  <- update"
+  local flag=""; [[ "${3#v}" != "${4#v}" ]] && [[ "$4" != "?" ]] && [[ "$4" != "-" ]] && flag="  <- update"
   printf '%-8s %-44s %-12s %-12s %s%s\n' "$1" "$2" "$3" "$4" "$5" "$flag"
 }
 printf '%-8s %-44s %-12s %-12s %s\n' KIND NAME CURRENT LATEST "FILES"
@@ -26,7 +26,7 @@ grep -rhoE 'uses: [A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40} +# *v?[0-9][^ ]*
 
 echo "# pre-commit hooks (rev: sha  # frozen: version)"
 for f in .pre-commit-config.yaml template/.pre-commit-config.yaml.jinja; do
-  [ -f "$f" ] || continue
+  [[ -f "$f" ]] || continue
   awk '/repo: https:\/\/github.com\//{r=$3} /rev: [0-9a-f]{40} +# frozen:/{print r, $NF}' "$f" \
     | while read -r url ver; do
         repo=${url#https://github.com/}
@@ -45,13 +45,13 @@ echo "# tools run by version (uvx tool@version from PyPI, pnpm dlx/npx tool@vers
 grep -rhoE '(uvx|pnpm dlx|npx) [a-z0-9_-]+@[0-9][0-9.]*' template scripts .github 2>/dev/null | sed 's/pnpm dlx/pnpm-dlx/' | sort -u \
   | while read -r runner tool; do
       name=${tool%@*}; ver=${tool#*@}
-      if [ "$runner" = uvx ]; then new=$(curl -fsS "https://pypi.org/pypi/$name/json" 2>/dev/null | jq -r '.info.version // "?"')
+      if [[ "$runner" = uvx ]]; then new=$(curl -fsS "https://pypi.org/pypi/$name/json" 2>/dev/null | jq -r '.info.version // "?"')
       else new=$(curl -fsS "https://registry.npmjs.org/$name/latest" 2>/dev/null | jq -r '.version // "?"'); fi
       row tool "$name ($runner)" "$ver" "${new:-?}" "$(grep -rlF "$tool" template scripts .github 2>/dev/null | wc -l | tr -d ' ') file(s)"
     done
 
 echo "# toolchain defaults in copier.yml"
-uvx --quiet --from pyyaml python -c '
+uvx --no-build --quiet --from pyyaml python -c '
 import yaml
 c = yaml.safe_load(open("copier.yml"))
 for k in ("python_version", "node_version", "rust_toolchain", "rust_msrv"):

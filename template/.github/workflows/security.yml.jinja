@@ -34,7 +34,7 @@ jobs:
         run: |
           configs=(--config p/default)
           [ -d .semgrep ] && configs+=(--config .semgrep)
-          uv run --project .github/tools semgrep scan "${configs[@]}" --error --metrics off --disable-version-check
+          uv run --no-build --project .github/tools semgrep scan "${configs[@]}" --error --metrics off --disable-version-check
 [% if is_public %]
     # CodeQL runs via GitHub "default setup" (enabled by scripts/bootstrap-github.sh), not in this file.
 [% endif %]
