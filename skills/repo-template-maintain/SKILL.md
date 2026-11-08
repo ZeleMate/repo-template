@@ -35,6 +35,7 @@ It lists every pinned action, hook, scanner binary, `uvx`/`pnpm dlx` tool versio
 - Actions: resolve the tag to its commit, `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha` (this dereferences annotated tags; the tag object SHA is not what `uses:` needs). Replace every occurrence and the version comment. Read the release notes for breaking input changes.
 - pre-commit hooks: same SHA lookup; keep the `# frozen: vX` comment format. Update both the root `.pre-commit-config.yaml` and `template/.pre-commit-config.yaml.jinja` where the hook appears in both.
 - Gitleaks / OSV-Scanner: update `*_VERSION` and `*_SHA256` together, taking the hash from the release's published checksums file for the exact asset the workflow downloads — never from hashing a download yourself without comparing.
+- SonarQube scanner image (`sonarsource/sonar-scanner-cli` in `ci.yml.jinja`): `list-pins.sh` and Dependabot don't track it, so check it by hand and update the tag and digest together.
 - Respect the same cooldown the template imposes on generated repos: don't adopt a release younger than about 7 days unless it's a security fix.
 
 ## Test

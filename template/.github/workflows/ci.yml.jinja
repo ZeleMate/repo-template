@@ -174,26 +174,43 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+    env:
+      # Secrets can't be read in `if:`, so expose only whether this one is set.
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Skip without a SonarQube token
+        if: env.HAS_SONAR_TOKEN != 'true'
+        run: echo "::warning::SONAR_TOKEN is not set, so the analysis was skipped. See docs/SETUP.md."
+      - if: env.HAS_SONAR_TOKEN == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
 [% if 'python' in languages %]
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+      - if: env.HAS_SONAR_TOKEN == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: coverage-python
           path: [[ py_dir ]]
 [% endif %]
 [% if 'typescript' in languages %]
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+      - if: env.HAS_SONAR_TOKEN == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: coverage-typescript
           path: [[ ts_dir ]]/coverage
 [% endif %]
-      - uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304  # v8.4.0
+      # SonarSource's scanner image, pinned by digest, instead of its action: a third-party action
+      # off the Actions allowlist fails the whole workflow at startup, even when its step is skipped.
+      - name: SonarQube Cloud analysis
+        if: env.HAS_SONAR_TOKEN == 'true'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          docker run --rm -e SONAR_TOKEN -e SONAR_HOST_URL=https://sonarcloud.io \
+            -v "$GITHUB_WORKSPACE:/usr/src" \
+            sonarsource/sonar-scanner-cli:12.3.0.4285_8.1.0@sha256:47956b669bf486bdad919e1cbd0533223515aa0b6d1d31763e5a3754942df6d7 \
+            -Dsonar.working.directory=/tmp/.scannerwork
 [% endif %]
 
   # Single required status check for the ruleset. Fails if any job failed or was cancelled.
