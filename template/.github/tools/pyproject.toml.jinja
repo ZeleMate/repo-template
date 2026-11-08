@@ -9,7 +9,9 @@ dependencies = [
     "copier>=9.19",
     "diff-cover>=11.0",
     "pre-commit>=4.7",
+[% if not is_public %]
     "semgrep>=1.181",
+[% endif %]
 ]
 
 [tool.uv]
