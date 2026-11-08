@@ -66,10 +66,10 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 
 | Area | Default | Alternatives you can swap in |
 |---|---|---|
-| CI | GitHub Actions. Every action is pinned to a commit SHA, `permissions: {}` by default, and a single `ci-ok` required check (pinned to the GitHub Actions app). Python runs on every supported minor version. CI tools (Semgrep, pre-commit, diff-cover, Copier) are locked with hashes in `.github/tools/uv.lock` | — |
+| CI | GitHub Actions. Every action is pinned to a commit SHA, `permissions: {}` by default, and a single `ci-ok` required check (pinned to the GitHub Actions app). Python runs on every supported minor version. CI tools (pre-commit, diff-cover, Copier, plus Semgrep on private repos) are locked with hashes in `.github/tools/uv.lock` | — |
 | Workflow linting | zizmor + actionlint (pre-commit and CI) | — |
-| Static analysis (security) | **Public:** CodeQL default setup + Semgrep CE. **Private:** Semgrep CE in CI | Semgrep AppSec Platform free tier (10 repos, cross-file); Opengrep (LGPL fork) |
-| Code quality dashboard | SonarQube Cloud, opt-in. On by default for public repos, where the open-source plan is free and complete | Qlty (free tier); SonarQube Server Community Build (self-hosted) |
+| Static analysis (security) | **Public:** CodeQL default setup. **Private:** Semgrep CE in CI, because CodeQL needs a paid add-on there | Semgrep AppSec Platform free tier (10 repos, cross-file); Opengrep (LGPL fork) |
+| Code quality dashboard | SonarQube Cloud through its GitHub App (Automatic Analysis: no CI job or CI secret), opt-in. On by default for public repos, where the open-source plan is free and complete | Qlty (free tier); SonarQube Server Community Build (self-hosted) |
 | Dependency vulns | OSV-Scanner (checksum-verified binary) + Dependabot alerts; `cargo deny` for Rust | Snyk / Socket free tiers |
 | Malicious packages | Dependabot malware alerts (manual toggle) + install cooldowns | Socket GitHub App |
 | Secrets | Gitleaks (pre-commit + full-history CI scan); GitHub push protection on public repos | TruffleHog, GitGuardian |

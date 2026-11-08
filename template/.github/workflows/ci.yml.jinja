@@ -76,14 +76,6 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: uv run diff-cover coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
-[% if quality_platform == 'sonarqube-cloud' %]
-      - if: matrix.python == '3.[[ py_lo ]]'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: coverage-python
-          path: [[ py_dir ]]/coverage.xml
-          retention-days: 1
-[% endif %]
 [% endif %]
 [% if 'typescript' in languages %]
 
@@ -121,13 +113,6 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: uv run --project "$GITHUB_WORKSPACE/.github/tools" diff-cover coverage/cobertura-coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=90
       - run: pnpm run build
-[% if quality_platform == 'sonarqube-cloud' %]
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: coverage-typescript
-          path: [[ ts_dir ]]/coverage/lcov.info
-          retention-days: 1
-[% endif %]
 [% endif %]
 [% if 'rust' in languages %]
 
@@ -160,58 +145,6 @@ jobs:
     uses: $/.github/workflows/security.yml
     permissions:
       contents: read
-[% if quality_platform == 'sonarqube-cloud' %]
-
-  sonarqube:
-    name: sonarqube
-    # Fork PRs get no secrets, so they cannot be analysed.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-[% set covered = languages | reject('equalto', 'rust') | list %]
-[% if covered %]
-    needs: [[ '[' ]][[ covered | join(', ') ]][[ ']' ]]
-[% endif %]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    env:
-      # Secrets can't be read in `if:`, so expose only whether this one is set.
-      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
-    steps:
-      - name: Skip without a SonarQube token
-        if: env.HAS_SONAR_TOKEN != 'true'
-        run: echo "::warning::SONAR_TOKEN is not set, so the analysis was skipped. See docs/SETUP.md."
-      - if: env.HAS_SONAR_TOKEN == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-[% if 'python' in languages %]
-      - if: env.HAS_SONAR_TOKEN == 'true'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
-        with:
-          name: coverage-python
-          path: [[ py_dir ]]
-[% endif %]
-[% if 'typescript' in languages %]
-      - if: env.HAS_SONAR_TOKEN == 'true'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
-        with:
-          name: coverage-typescript
-          path: [[ ts_dir ]]/coverage
-[% endif %]
-      # SonarSource's scanner image, pinned by digest, instead of its action: a third-party action
-      # off the Actions allowlist fails the whole workflow at startup, even when its step is skipped.
-      - name: SonarQube Cloud analysis
-        if: env.HAS_SONAR_TOKEN == 'true'
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          docker run --rm -e SONAR_TOKEN -e SONAR_HOST_URL=https://sonarcloud.io \
-            -v "$GITHUB_WORKSPACE:/usr/src" \
-            sonarsource/sonar-scanner-cli:12.3.0.4285_8.1.0@sha256:47956b669bf486bdad919e1cbd0533223515aa0b6d1d31763e5a3754942df6d7 \
-            -Dsonar.working.directory=/tmp/.scannerwork
-[% endif %]
 
   # Single required status check for the ruleset. Fails if any job failed or was cancelled.
   ci-ok:
@@ -223,9 +156,6 @@ jobs:
       - [[ l ]]
 [% endfor %]
       - security
-[% if quality_platform == 'sonarqube-cloud' %]
-      - sonarqube
-[% endif %]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

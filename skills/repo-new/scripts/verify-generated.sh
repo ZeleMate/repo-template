@@ -34,7 +34,7 @@ if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
   if [ -f "$REPO/.github/tools/uv.lock" ]; then
     # v0.2.0+: the hash-locked CI tools, exactly as CI runs them.
     check "pre-commit hooks" sh -c "cd \"$REPO\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --project .github/tools pre-commit run --all-files"
-    check "semgrep (as in security.yml)" sh -c "cd \"$REPO\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
+    grep -q semgrep "$REPO/.github/workflows/security.yml" && check "semgrep (as in security.yml)" sh -c "cd \"$REPO\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
   else
     check "pre-commit hooks" sh -c "cd \"$REPO\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uvx pre-commit@4.7.0 run --all-files"
   fi

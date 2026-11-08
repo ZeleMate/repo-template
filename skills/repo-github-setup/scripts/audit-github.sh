@@ -103,7 +103,6 @@ echo "==> secrets (names only)"
 names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null) || { skip "cannot list secrets (needs admin)"; names=""; }
 want=(RELEASE_PLEASE_TOKEN)
 [ "$CLAUDE" = yes ] && want+=(CLAUDE_CODE_OAUTH_TOKEN)
-[ "$SONAR" = yes ] && want+=(SONAR_TOKEN)
 [ "$AGENTIC" = yes ] && want+=(EVAL_ANTHROPIC_API_KEY)
 for s in "${want[@]}"; do
   if grep -qx "$s" <<<"$names"; then ok "secret $s set"; else bad "secret $s missing"; fi
@@ -111,7 +110,7 @@ done
 
 echo "==> not checkable from the API (confirm by hand)"
 [ "$CODERABBIT" = yes ] && skip "CodeRabbit GitHub App installed on the repo"
-[ "$SONAR" = yes ] && skip "SonarQube Cloud project imported with Automatic Analysis off"
+[ "$SONAR" = yes ] && skip "SonarQube Cloud project imported with Automatic Analysis on"
 [ "$PUBLISHES" = yes ] && skip "trusted publisher registered on each registry"
 skip "pre-commit hooks installed locally (uvx pre-commit install)"
 
