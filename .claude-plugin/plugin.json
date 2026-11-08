@@ -1,6 +1,6 @@
 {
   "name": "repo-standards",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Production baseline for new and existing repos: scaffold from the Copier template, adopt it in an existing repo, apply and audit GitHub settings, pull template updates, and maintain the template.",
   "author": { "name": "Zelenyiánszki Máté" },
   "repository": "https://github.com/ZeleMate/repo-template",
