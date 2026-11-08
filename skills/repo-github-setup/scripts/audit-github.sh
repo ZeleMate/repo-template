@@ -8,11 +8,11 @@ set -uo pipefail
 
 REPO_DIR="$(cd "${1:-.}" && pwd)"
 ANSWERS="$REPO_DIR/.copier-answers.yml"
-[ -f "$ANSWERS" ] || { echo "No .copier-answers.yml in $REPO_DIR"; exit 2; }
+[[ -f "$ANSWERS" ]] || { echo "No .copier-answers.yml in $REPO_DIR"; exit 2; }
 gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated: run 'gh auth login'"; exit 2; }
 
 # key=value lines for the answers this audit needs.
-eval "$(uvx --quiet --from pyyaml python - "$ANSWERS" <<'PY'
+eval "$(uvx --no-build --quiet --from pyyaml python - "$ANSWERS" <<'PY'
 import shlex, sys, yaml
 a = yaml.safe_load(open(sys.argv[1]))
 vis = a.get("visibility", "private")
@@ -37,7 +37,7 @@ bad()   { printf '  \033[31mDRIFT\033[0m   %s\n' "$*"; drift=1; }
 skip()  { printf '  \033[33m?\033[0m       %s\n' "$*"; }
 api()   { gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" "$@" 2>/dev/null; }
 # expect <label> <actual> <wanted>
-expect() { if [ "$2" = "$3" ]; then ok "$1 = $2"; elif [ -z "$2" ]; then skip "$1: could not read (permissions or plan)"; else bad "$1 = $2 (want $3)"; fi; }
+expect() { if [[ "$2" = "$3" ]]; then ok "$1 = $2"; elif [[ -z "$2" ]]; then skip "$1: could not read (permissions or plan)"; else bad "$1 = $2 (want $3)"; fi; }
 
 echo "Auditing $FULL against $ANSWERS"
 repo=$(api "repos/$FULL") || { bad "repository $FULL does not exist or is not visible to you"; exit 1; }
@@ -66,7 +66,7 @@ if gh api "repos/$FULL/vulnerability-alerts" >/dev/null 2>&1; then ok "vulnerabi
 expect "automated security fixes" "$(api "repos/$FULL/automated-security-fixes" | val .enabled)" true
 skip "malware alerts: UI-only setting, check Settings -> Advanced Security"
 
-if [ "$VIS" = public ]; then
+if [[ "$VIS" = public ]]; then
   echo "==> public-repo security features"
   expect "secret scanning" "$(jqr .security_and_analysis.secret_scanning.status)" enabled
   expect "push protection" "$(jqr .security_and_analysis.secret_scanning_push_protection.status)" enabled
@@ -76,9 +76,9 @@ if [ "$VIS" = public ]; then
 fi
 
 echo "==> ruleset"
-if [ "$GOV" = yes ]; then
+if [[ "$GOV" = yes ]]; then
   rid=$(api "repos/$FULL/rulesets" | jq -r '.[] | select(.name=="main") | .id' | head -1)
-  if [ -z "$rid" ]; then
+  if [[ -z "$rid" ]]; then
     bad "ruleset 'main' missing"
   else
     rs=$(api "repos/$FULL/rulesets/$rid")
@@ -91,10 +91,10 @@ else
   skip "private repo on GitHub Free: rulesets unavailable (documented gap in docs/THREAT_MODEL.md)"
 fi
 
-if [ "$PUBLISHES" = yes ]; then
+if [[ "$PUBLISHES" = yes ]]; then
   echo "==> releases"
   expect "immutable releases" "$(api "repos/$FULL/immutable-releases" | val .enabled)" true
-  if [ "$GOV" = yes ]; then
+  if [[ "$GOV" = yes ]]; then
     if api "repos/$FULL/environments/release" >/dev/null; then ok "environment 'release' exists"; else bad "environment 'release' missing"; fi
   fi
 fi
@@ -102,18 +102,18 @@ fi
 echo "==> secrets (names only)"
 names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null) || { skip "cannot list secrets (needs admin)"; names=""; }
 want=(RELEASE_PLEASE_TOKEN)
-[ "$CLAUDE" = yes ] && want+=(CLAUDE_CODE_OAUTH_TOKEN)
-[ "$SONAR" = yes ] && want+=(SONAR_TOKEN)
-[ "$AGENTIC" = yes ] && want+=(EVAL_ANTHROPIC_API_KEY)
+[[ "$CLAUDE" = yes ]] && want+=(CLAUDE_CODE_OAUTH_TOKEN)
+[[ "$SONAR" = yes ]] && want+=(SONAR_TOKEN)
+[[ "$AGENTIC" = yes ]] && want+=(EVAL_ANTHROPIC_API_KEY)
 for s in "${want[@]}"; do
   if grep -qx "$s" <<<"$names"; then ok "secret $s set"; else bad "secret $s missing"; fi
 done
 
 echo "==> not checkable from the API (confirm by hand)"
-[ "$CODERABBIT" = yes ] && skip "CodeRabbit GitHub App installed on the repo"
-[ "$SONAR" = yes ] && skip "SonarQube Cloud project imported with Automatic Analysis off"
-[ "$PUBLISHES" = yes ] && skip "trusted publisher registered on each registry"
+[[ "$CODERABBIT" = yes ]] && skip "CodeRabbit GitHub App installed on the repo"
+[[ "$SONAR" = yes ]] && skip "SonarQube Cloud project imported with Automatic Analysis off"
+[[ "$PUBLISHES" = yes ]] && skip "trusted publisher registered on each registry"
 skip "pre-commit hooks installed locally (uvx pre-commit install)"
 
 echo
-if [ "$drift" = 0 ]; then echo "NO DRIFT"; else echo "DRIFT FOUND: re-run ./scripts/bootstrap-github.sh (idempotent) or fix the items above"; exit 1; fi
+if [[ "$drift" = 0 ]]; then echo "NO DRIFT"; else echo "DRIFT FOUND: re-run ./scripts/bootstrap-github.sh (idempotent) or fix the items above"; exit 1; fi
