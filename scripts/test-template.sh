@@ -32,7 +32,7 @@ lint_workflows() {
   check "json valid" sh -c "for f in \"$d\"/.claude/settings.json \"$d\"/.github/rulesets/main.json \"$d\"/release-please-config.json \"$d\"/.release-please-manifest.json; do python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
   check "ci tools lock" uv lock --check --project "$d/.github/tools"
   check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --project .github/tools pre-commit run --all-files"
-  check "semgrep (as in security.yml)" sh -c "cd \"$d\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
+  grep -q semgrep "$d/.github/workflows/security.yml" && check "semgrep (as in security.yml)" sh -c "cd \"$d\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
   check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -e '\[\[ ' -e '\[% ' \"$d\" | grep -v pnpm-lock"
 }
 
