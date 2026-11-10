@@ -48,7 +48,7 @@ jobs:
           RUST_VERSION: ${{ steps.versions.outputs.rust }}
         run: rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt,clippy
       - name: Lint this repo (pre-commit)
-        run: uvx --no-build pre-commit run --all-files --show-diff-on-failure
+        run: uvx --no-build pre-commit@4.7.0 run --all-files --show-diff-on-failure
       - name: Render every answer set and check the output
         run: ./scripts/test-template.sh
       - name: Skill scripts (shellcheck)
