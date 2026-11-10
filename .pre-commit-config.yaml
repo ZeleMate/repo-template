@@ -1,5 +1,5 @@
 # Hooks for the template repo itself (generated repos get template/.pre-commit-config.yaml.jinja).
-# Revs are full commit SHAs. Install with: uvx pre-commit install
+# Revs are full commit SHAs. Install with: uvx pre-commit@4.7.0 install (CI runs the same version)
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
