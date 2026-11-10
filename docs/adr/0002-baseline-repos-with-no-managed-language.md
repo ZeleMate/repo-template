@@ -1,0 +1,27 @@
+---
+status: accepted
+---
+
+# Baseline repos: an empty `languages` answer, and a repo-owned local CI workflow
+
+The template's `languages` answer may be empty. A generated repo with no managed language is a baseline repo: it gets security scanning, Dependabot, the merge gate and agent config, and the template writes no toolchain, release or ops files into it. Its own CI jobs live in a local CI workflow, `ci-local.yml`, which the template writes once and never updates, and which the caller `ci.yml` always calls and lists in the merge gate. Most existing repos on the account don't use the template's stack (uv, Ruff and strict typing for Python; pnpm, ESLint and Vitest for TypeScript), and the two repos adopted so far kept Bun and Biome, rewrote `ci.yml` and so get little from `copier update`. The baseline exists for security hygiene and agent-readiness in those repos, not to move them onto the template's toolchain.
+
+## Considered Options
+
+- **A separate lighter template.** Rejected: a second release train and a second set of answers for about six repos, and the two adopted repos would have to switch templates.
+- **A per-language `toolchain: managed/custom` answer.** More precise, since the template would still know the repo is Python or TypeScript. Rejected because only Dependabot needs to know the ecosystem in a baseline repo, and `extra_ecosystems` covers that with one answer.
+- **Local jobs edited into `ci.yml`**, as ADR 0001 first described. Rejected: it makes a template-owned file diverge in every repo with its own stack, which is what broke `copier update` in the adopted repos.
+- **The merge gate only where a repo already has CI.** Rejected: Dependabot automerge waits on the merge gate, and the security and repo-lint calls mean the gate is never empty.
+- **Rewriting history to remove old secrets.** Rejected as the default: in a public repo the value is already exposed, so only rotation removes the risk.
+
+## Consequences
+
+- **What an empty `languages` renders.** Always: the caller `security.yml`, the caller `ci.yml` with the merge gate, `ci-local.yml`, `dependabot.yml`, the Dependabot automerge workflow, `template-update.yml`, `SECURITY.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/`, a `.pre-commit-config.yaml` with language-neutral hooks only, `.editorconfig`, `scripts/bootstrap-github.sh`, the ruleset and `docs/SETUP.md`. By existing answers: `claude-review.yml` and `REVIEW.md` (`ai_reviewers`), evals and `docs/agent-policy.md` (`agentic`), licence files (`license`).
+- **What it leaves out.** The language folders, `release.yml` and the release-please config, `CHANGELOG.md`, `docs/slo.md`, `docs/runbooks/`, `docs/dependencies.md`, and the template's `README.md` and `CONTRIBUTING.md`. An empty `languages` therefore also means the template doesn't release the repo. A baseline repo that wants releases keeps its own workflow.
+- **`ci-local.yml` is for every generated repo**, not only baseline repos. It is a reusable workflow (`on: workflow_call`) that starts as a no-op. The template owns `ci.yml` outright and the repo owns `ci-local.yml` outright. This replaces the "add a local job to `ci.yml`" route in ADR 0001 and section 5 of the central workflows spec. The costs are one more nesting level and a no-op job in repos with nothing local.
+- **The merge gate ships in every baseline repo** and `bootstrap-github.sh` makes it a required check, as in any generated repo. The rule from ADR 0001 still holds inside `ci-local.yml`: no job the merge gate waits on may need a secret.
+- **A new `extra_ecosystems` answer** (multiselect, default empty, asked for every repo) names the Dependabot ecosystems the template can't infer from `languages`, such as `pip`, `uv`, `npm`, `bun` or `docker`. `github-actions` is always on. OSV-Scanner needs no answer, because it finds manifests and lockfiles itself. A notebook-only repo with no manifest gets Actions updates only.
+- **Secrets already in history are handled at adoption, before Gitleaks runs in CI.** The `repo-adopt` skill runs a full-history Gitleaks scan locally and stops on findings. A real secret is rotated by the owner first, then its fingerprint goes into `.gitleaksignore` with the rotation date. A false positive goes in with a reason. History is not rewritten. CI then starts green and still fails on a new secret.
+- **No new central workflow.** A baseline repo's `ci.yml` calls the central `repo-lint.yml` and `security.yml` at one pin. The baseline is built after the central workflows land, as one template minor release.
+- **Promotion is an answer change.** A baseline repo that later takes the template's toolchain adds the language to `languages` and runs `copier update`. A stack that recurs across baseline repos is still promoted to a template language, as in ADR 0001.
+- **Adoption order.** `forge-lab` and `DeepSeek-demo-implementation` move first, with `languages: []` and their Bun and Biome jobs in `ci-local.yml`, as the test of the design. `LegalQA_v2`, `CourtRankRL`, `Agentic-RAG-PoC` and `Legal_Clustermap` follow one at a time. `miniharness` and `Multi-agent-Risk-Reporter-PoC` already use uv and take the full Python template. `LegalQA`, `multi-agent-courtroom` and `desktop-tutorial` are archived. `Kozlony_figyelo`, `EU-AI-Act-Compliance-Checker` and `TezauruszAI` are left alone until work on them resumes. The credentials in `Kozlony_figyelo`'s committed `.env` are rotated regardless.
