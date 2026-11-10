@@ -24,6 +24,7 @@ out = {
     "CLAUDE": "yes" if "claude" in (a.get("ai_reviewers") or []) else "no",
     "CODERABBIT": "yes" if "coderabbit" in (a.get("ai_reviewers") or []) else "no",
     "SONAR": "yes" if a.get("quality_platform") == "sonarqube-cloud" else "no",
+    "SRC": a.get("_src_path", ""),
 }
 for k, v in out.items():
     print(f"{k}={shlex.quote(str(v))}")
@@ -104,6 +105,17 @@ names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null) || { 
 want=(RELEASE_PLEASE_TOKEN)
 [[ "$CLAUDE" = yes ]] && want+=(CLAUDE_CODE_OAUTH_TOKEN)
 [[ "$AGENTIC" = yes ]] && want+=(EVAL_ANTHROPIC_API_KEY)
+# The weekly template update check can only read a private template with TEMPLATE_READ_TOKEN.
+tpl=$(sed -E -e 's#^gh:##' -e 's#^(https://|git@)github\.com[:/]##' -e 's#\.git$##' <<<"$SRC")
+if [[ "$tpl" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+  case "$(api "repos/$tpl" --jq .private)" in
+    true) want+=(TEMPLATE_READ_TOKEN) ;;
+    false) ;;
+    *) skip "template $tpl: could not tell if it is private; if so, TEMPLATE_READ_TOKEN must be set" ;;
+  esac
+else
+  skip "template source '$SRC' is not a GitHub repo, so the weekly update check cannot reach it"
+fi
 for s in "${want[@]}"; do
   if grep -qx "$s" <<<"$names"; then ok "secret $s set"; else bad "secret $s missing"; fi
 done

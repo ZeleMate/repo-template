@@ -46,7 +46,7 @@ check "no unrendered template tags" sh -c "! grep -rIl --exclude-dir=node_module
 if [[ -f "$REPO/evals/run.py" ]]; then
   # Same command the evals workflow runs on PRs; also catches pins newer than the uv cooldown.
   echo "==> evals (mock)"
-  check "evals --mock" sh -c "cd \"$REPO\" && uv run evals/run.py --mock"
+  check "evals --mock" sh -c "cd \"$REPO\" && uv run --locked evals/run.py --mock"
 fi
 
 for lang in $langs; do
