@@ -21,6 +21,8 @@ concurrency:
 jobs:
   review:
     # Skip drafts, bots, and fork PRs (forks get no secrets on public repos).
+    # Skipping bots is deliberate: Dependabot PRs automerge on the merge gate alone, and their
+    # text is third-party release notes. Review a major update by hand with workflow_dispatch.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.draft == false &&

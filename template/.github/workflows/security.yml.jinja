@@ -1,82 +1,19 @@
 name: Security
 
-# Called from ci.yml on every PR/push (so it feeds the ci-ok check), and run weekly
-# so new advisories against unchanged code are caught.
+# Weekly, so new advisories against unchanged code are caught. ci.yml calls the same
+# reusable workflow on every PR and push, where it feeds the merge gate.
 on:
-  workflow_call:
   workflow_dispatch:
   schedule:
     - cron: "23 5 * * 1"
 
 permissions: {}
 
-env:
-  UV_LOCKED: "1"
-
 jobs:
-[% if is_public %]
-  # Code scanning is CodeQL "default setup" (enabled by scripts/bootstrap-github.sh), not a job here.
-[% else %]
-  sast:
-    name: sast (semgrep)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  security:
+    uses: ZeleMate/workflows/.github/workflows/security.yml@602f4864a39078a3abf28485cf9a69c73ef77418  # v1.0.0
     permissions:
       contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
-      # Semgrep Community Edition runs entirely in CI; no code leaves the runner except rule downloads.
-      # Add project rules under .semgrep/ and they are picked up automatically.
-      - env:
-          # semgrep-core can segfault in its io_uring backend on ubuntu-24.04
-          # runners; Eio's portable backend avoids it.
-          EIO_BACKEND: posix
-        run: |
-          configs=(--config p/default)
-          [ -d .semgrep ] && configs+=(--config .semgrep)
-          uv run --no-build --project .github/tools semgrep scan "${configs[@]}" --error --metrics off --disable-version-check
-[% endif %]
-
-  dependencies:
-    name: dependencies (osv-scanner)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    env:
-      OSV_VERSION: "2.7.0"
-      OSV_SHA256: "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install osv-scanner (checksum-verified)
-        run: |
-          curl -fsSL -o osv-scanner "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/osv-scanner_linux_amd64"
-          echo "${OSV_SHA256}  osv-scanner" | sha256sum -c -
-          chmod +x osv-scanner
-      - run: ./osv-scanner scan source --recursive .
-
-  secrets:
-    name: secrets (gitleaks)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    env:
-      GITLEAKS_VERSION: "8.30.1"
-      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Install gitleaks (checksum-verified)
-        run: |
-          curl -fsSL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
-          tar -xzf gitleaks.tgz gitleaks
-      - run: ./gitleaks git --redact --verbose .
+    with:
+      # Semgrep runs on private repos; public repos use CodeQL default setup instead.
+      sast: [[ 'false' if is_public else 'true' ]]

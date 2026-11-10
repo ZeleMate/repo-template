@@ -48,11 +48,11 @@ Walk the rendered tree (`find <scratch>/rendered -type f -not -path '*/.venv/*' 
 | Exists and is pure config (`.pre-commit-config.yaml`, `.gitignore`, `dependabot.yml`, linter configs) | Merge: template content as the base, plus the repo's extra entries. |
 | Exists and is the project's own (`README.md`, `pyproject.toml`/`package.json`/`Cargo.toml`, source, tests, `LICENSE`, `CHANGELOG.md`) | Keep theirs; port only the template's tool settings into it (e.g. the `[tool.ruff]`, `[tool.pyright]`, coverage and `exclude-newer` sections; the package.json scripts CI calls: `format:check`, `lint`, `typecheck`, `test:coverage`, `build`). |
 | The template's placeholder code (`src/<pkg>/__init__.py`, `src/index.ts`, `src/lib.rs`, `tests/test_smoke.py`, `test/index.test.ts`) | Skip. |
-| Existing CI workflows | Replace with the template's `ci.yml`, `security.yml`, `release.yml`, then re-add any job the template lacks and add it to `ci-ok`'s `needs`. Keep every action pinned to a full SHA with a version comment. |
+| Existing CI workflows | Replace with the template's `ci.yml`, `security.yml`, `release.yml`, then re-add any job the template lacks and add it to `ci-ok`'s `needs`. Keep every action pinned to a full SHA with a version comment. The template's `ci.yml` only calls reusable workflows in `ZeleMate/workflows`; if the repo keeps a toolchain those don't support (Bun, Poetry, Jest), drop that language's call, keep the repo's own job in `ci.yml`, and still call `security.yml` and `repo-lint.yml`. |
 
-If the layout differs from the template's (say Python under `backend/`), fix paths in the copied files: `working-directory`, `cache-dependency-glob`, coverage paths in `ci.yml`, the `uv run --project` / `pnpm --dir` paths in `.claude/hooks/format.sh`, and `paths` in `release-please-config.json`.
+If the layout differs from the template's (say Python under `backend/`), fix paths in the copied files: the `working-directory` inputs in `ci.yml`, the `uv run --project` / `pnpm --dir` paths in `.claude/hooks/format.sh`, and `paths` in `release-please-config.json`.
 
-Add the dev dependencies the template's CI calls with the package manager, never by editing lockfiles (`uv add --dev ruff pyright pytest pytest-cov hypothesis diff-cover`, `pnpm add -D ...` as listed in the rendered `package.json`). Respect the cooldowns the template sets.
+Add the dev dependencies the template's CI calls with the package manager, never by editing lockfiles (`uv add --dev ruff pyright pytest pytest-cov hypothesis`, `pnpm add -D ...` as listed in the rendered `package.json`). Respect the cooldowns the template sets.
 
 ## 5. Write the answers file
 

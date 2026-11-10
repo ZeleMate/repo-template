@@ -66,7 +66,7 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 
 | Area | Default | Alternatives you can swap in |
 |---|---|---|
-| CI | GitHub Actions. Every action is pinned to a commit SHA, `permissions: {}` by default, and a single `ci-ok` required check (pinned to the GitHub Actions app). Python runs on every supported minor version. CI tools (pre-commit, diff-cover, Copier, plus Semgrep on private repos) are locked with hashes in `.github/tools/uv.lock` | — |
+| CI | GitHub Actions. Every action is pinned to a commit SHA, `permissions: {}` by default, and a single `ci-ok` required check (pinned to the GitHub Actions app). Python runs on every supported minor version. CI and security are short caller workflows that call reusable workflows in the public `ZeleMate/workflows` repo, pinned to one release SHA ([ADR 0001](docs/adr/0001-centralise-ci-and-security-workflows.md)); their tools (pre-commit, diff-cover, Semgrep) are locked with hashes there. Dependabot automerges non-major updates once `ci-ok` is green, where the ruleset exists | — |
 | Workflow linting | zizmor + actionlint (pre-commit and CI) | — |
 | Static analysis (security) | **Public:** CodeQL default setup. **Private:** Semgrep CE in CI, because CodeQL needs a paid add-on there | Semgrep AppSec Platform free tier (10 repos, cross-file); Opengrep (LGPL fork) |
 | Code quality dashboard | SonarQube Cloud through its GitHub App (Automatic Analysis: no CI job or CI secret), opt-in. On by default for public repos, where the open-source plan is free and complete | Qlty (free tier); SonarQube Server Community Build (self-hosted) |
@@ -106,7 +106,8 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 
 - Tag releases (`v1.2.0`). `copier update` and the weekly check use tags.
 - **Bump pinned versions deliberately.** Action SHAs, hook revs, the gitleaks/OSV-Scanner checksums and Semgrep live in the template files. Dependabot keeps them current in generated repos; update the template itself quarterly.
-- **Test changes:** `./scripts/test-template.sh` generates every language combination and runs actionlint, zizmor and the real toolchains on the output.
+- **Test changes:** `./scripts/test-template.sh` generates every language combination and runs actionlint, zizmor and the real toolchains on the output. CI runs it on every PR and weekly.
+- **Central workflow pin:** CI and security jobs live in `ZeleMate/workflows`. Move the template's pin with `./scripts/bump-central-pin.sh vX.Y.Z`; `./scripts/check-central-pins.sh` fails if the calls don't all pin one SHA. Generated repos get minor and patch central releases from Dependabot, and majors from a template release.
 - **Keep the skills in step.** A new question goes in `skills/repo-new/references/choosing-answers.md` as well as here; a new secret or GitHub setting goes in `docs/SETUP.md.jinja`, the bootstrap script, and `skills/repo-github-setup/scripts/audit-github.sh`. Bump `.claude-plugin/plugin.json`'s version when skills change.
 
 ## Facts to re-check before relying on them

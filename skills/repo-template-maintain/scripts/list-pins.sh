@@ -8,7 +8,13 @@ ROOT="$(cd "${1:-.}" && pwd)"
 cd "$ROOT" || exit 2
 [[ -f copier.yml ]] || { echo "$ROOT has no copier.yml; pass the template root"; exit 2; }
 
-latest() { gh api "repos/$1/releases/latest" --jq .tag_name 2>/dev/null || gh api "repos/$1/tags" --jq '.[0].name' 2>/dev/null || echo "?"; }
+# gh prints the error body on stdout when a call fails, so capture before printing.
+latest() {
+  local out
+  if out=$(gh api "repos/$1/releases/latest" --jq .tag_name 2>/dev/null) && [[ -n "$out" ]]; then echo "$out"
+  elif out=$(gh api "repos/$1/tags" --jq '.[0].name' 2>/dev/null) && [[ -n "$out" ]]; then echo "$out"
+  else echo "?"; fi
+}
 row() { # kind, name, current, latest, where
   local flag=""; [[ "${3#v}" != "${4#v}" ]] && [[ "$4" != "?" ]] && [[ "$4" != "-" ]] && flag="  <- update"
   printf '%-8s %-44s %-12s %-12s %s%s\n' "$1" "$2" "$3" "$4" "$5" "$flag"
@@ -35,6 +41,7 @@ for f in .pre-commit-config.yaml template/.pre-commit-config.yaml.jinja; do
 done
 
 echo "# checksum-verified binaries (VERSION + SHA256 env pairs)"
+echo "#   (Gitleaks and OSV-Scanner are pinned in ZeleMate/workflows, security.yml, since the central workflows)"
 grep -rhoE '(OSV|GITLEAKS)_VERSION: "[^"]+"' template | sort -u | while read -r line; do
   name=$(cut -d_ -f1 <<<"$line"); ver=$(sed -E 's/.*"([^"]+)"/\1/' <<<"$line")
   case $name in OSV) repo=google/osv-scanner ;; GITLEAKS) repo=gitleaks/gitleaks ;; esac
