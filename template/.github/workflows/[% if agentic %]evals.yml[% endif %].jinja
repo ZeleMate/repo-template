@@ -38,9 +38,9 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$EVENT" = "pull_request" ] || [ -z "$ANTHROPIC_API_KEY" ]; then
-            uv run evals/run.py --mock
+            uv run --locked evals/run.py --mock
           else
-            uv run evals/run.py --model "$EVAL_MODEL"
+            uv run --locked evals/run.py --model "$EVAL_MODEL"
           fi
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2

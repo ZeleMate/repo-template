@@ -7,6 +7,9 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=500]
+[% if agentic %]
+        exclude: ^evals/run\.py\.lock$  # hash-locked eval deps, ~550 KB
+[% endif %]
       - id: check-merge-conflict
       - id: check-yaml
         args: [--allow-multiple-documents]  # pnpm lockfiles are multi-document

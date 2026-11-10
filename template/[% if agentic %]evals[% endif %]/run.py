@@ -1,13 +1,20 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = ["inspect-ai==0.3.285", "anthropic>=0.70"]
+#
+# [tool.uv]
+# # Same 7-day supply-chain cooldown as the app's dependencies.
+# exclude-newer = "7 days"
 # ///
 """Run eval suites and fail if a suite scores below its threshold.
 
+Dependencies are locked in run.py.lock; after changing the list above, run
+`uv lock --script evals/run.py`.
+
 Harness check (no API key, thresholds not enforced):
-    uv run evals/run.py --mock
+    uv run --locked evals/run.py --mock
 Real run (needs ANTHROPIC_API_KEY):
-    uv run evals/run.py --model anthropic/claude-sonnet-5-5
+    uv run --locked evals/run.py --model anthropic/claude-sonnet-5-5
 """
 
 import argparse

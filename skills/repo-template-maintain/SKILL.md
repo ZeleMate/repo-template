@@ -36,6 +36,7 @@ It lists every pinned action, hook, scanner binary, `uvx`/`pnpm dlx` tool versio
 - pre-commit hooks: same SHA lookup; keep the `# frozen: vX` comment format. Update both the root `.pre-commit-config.yaml` and `template/.pre-commit-config.yaml.jinja` where the hook appears in both.
 - Gitleaks / OSV-Scanner: update `*_VERSION` and `*_SHA256` together, taking the hash from the release's published checksums file for the exact asset the workflow downloads — never from hashing a download yourself without comparing.
 - SonarQube scanner image (`sonarsource/sonar-scanner-cli` in `ci.yml.jinja`): `list-pins.sh` and Dependabot don't track it, so check it by hand and update the tag and digest together.
+- Eval harness (`template/[% if agentic %]evals[% endif %]/run.py`): its dependencies are hash-locked in `run.py.lock` next to it, which neither `list-pins.sh` nor Dependabot tracks. Re-lock it each pin refresh with `uv lock --script run.py --upgrade` (it keeps a 7-day cooldown), bump the `inspect-ai` pin there if needed, and let `test-template.sh` run the mock evals against the new lock. An unlocked script once broke when a transitive dependency shipped an incompatible major version.
 - Respect the same cooldown the template imposes on generated repos: don't adopt a release younger than about 7 days unless it's a security fix.
 
 ## Test

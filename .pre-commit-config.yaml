@@ -6,6 +6,7 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=500]
+        exclude: evals[^/]*/run\.py\.lock$  # the template's hash-locked eval deps, ~550 KB
       - id: check-merge-conflict
       - id: detect-private-key
       - id: check-yaml
