@@ -20,6 +20,10 @@ _Avoid_: thin caller, stub workflow, wrapper
 A single repo outside the template that hosts reusable workflows which generated repos call by reference.
 _Avoid_: `.github` repo (that name is one possible implementation), shared repo
 
+**Central release**:
+A semver tag of the central workflow repo; a major release is one that can turn a previously green caller workflow red without an edit to it.
+_Avoid_: central version, workflow release
+
 **Copied workflow**:
 A workflow the template writes into a generated repo in full, owned and edited there, and refreshed only through `copier update`.
 _Avoid_: local workflow, vendored workflow
