@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # This repo's own workflow. Pins inside template/ are .jinja files Dependabot can't read:
+  # refresh those with the repo-template-maintain skill.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
