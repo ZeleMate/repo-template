@@ -12,6 +12,18 @@ _Avoid_: starter, scaffold, boilerplate
 A repo stamped from the template, carrying a `.copier-answers.yml` that ties it back to a template version.
 _Avoid_: child repo, downstream repo, project
 
+**Managed language**:
+A language named in the `languages` answer, for which the template writes and updates the toolchain, CI call and release config.
+_Avoid_: supported language, stack
+
+**Baseline repo**:
+A generated repo with no managed language; the template gives it security scanning, Dependabot, the merge gate and agent config, and nothing else.
+_Avoid_: baseline-only mode, lite repo, minimal repo
+
+**Local CI workflow**:
+The reusable workflow `ci-local.yml` in a generated repo, written once by the template and owned by the repo from then on, holding the CI jobs for anything that isn't a managed language.
+_Avoid_: custom CI, local jobs, extension workflow
+
 **Caller workflow**:
 A short workflow in a generated repo whose only job is to invoke a central workflow with that repo's inputs.
 _Avoid_: thin caller, stub workflow, wrapper
