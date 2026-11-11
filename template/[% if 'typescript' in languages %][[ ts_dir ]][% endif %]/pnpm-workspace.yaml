@@ -6,3 +6,7 @@ minimumReleaseAge: 10080
 trustPolicy: no-downgrade
 # Dependency install scripts are blocked by default; allowlist packages here when needed.
 onlyBuiltDependencies: []
+# minimatch < 11.0.1 has a denial-of-service advisory (GHSA-g3hv-75wg-m249) and no 10.x fix.
+# ESLint and typescript-eslint still ask for ^10. Remove this once they move to 11.
+overrides:
+  minimatch: ^11.0.1

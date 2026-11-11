@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generate the template for several answer sets and check the output.
 #   ./scripts/test-template.sh [outdir]
-# Needs: uv, pnpm, node, git; cargo optional (Rust checks are skipped without it); actionlint + zizmor optional.
+# Needs: uv, pnpm, node, git; cargo optional (Rust checks are skipped without it); actionlint, zizmor and osv-scanner optional.
 set -euo pipefail
 
 TEMPLATE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -48,6 +48,11 @@ lint_workflows() {
   check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --no-build --project \"$TOOLS\" pre-commit run --all-files"
   check "merge gate lists every job" uv run --locked --no-build --project "$TOOLS" python "$CENTRAL_DIR/scripts/check_merge_gate.py" "$d/.github/workflows/ci.yml" ci-ok
   grep -q "sast: true" "$d/.github/workflows/security.yml" && check "semgrep (as in the central security workflow)" sh -c "cd \"$d\" && EIO_BACKEND=posix uv run --locked --no-build --project \"$TOOLS\" semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
+  # Same scan as the central security workflow: a fresh repo must not start with a red merge gate.
+  if command -v osv-scanner >/dev/null; then
+    osv_args=(scan source --recursive); [[ -f "$d/evals/run.py.lock" ]] && osv_args+=(--lockfile "uv.lock:$d/evals/run.py.lock")
+    check "osv-scanner" osv-scanner "${osv_args[@]}" "$d"
+  fi
   check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -e '\[\[ ' -e '\[% ' \"$d\" | grep -v pnpm-lock"
 }
 
