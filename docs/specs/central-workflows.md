@@ -6,7 +6,7 @@ This spec comes from the map [Centralise CI and update policy, or keep copying i
 
 Out of scope: a settings drift checker for generated repos and Claude Code guard hooks.
 
-**Status (2026-11-10):** built, except the steps that need the central repo to be public. See the build checklist at the end.
+**Status (2026-11-11):** built and live. `ZeleMate/workflows` is public and tagged `v1.0.0`. See the build checklist at the end for what the live test did and did not cover.
 
 ## 1. The central workflow repo
 
@@ -112,7 +112,7 @@ uses: ZeleMate/workflows/.github/workflows/python.yml@<40-char sha> # v1.4.0
 - No `id-token: write` and no secret are needed. The repo is public, so the default `GITHUB_TOKEN` can check it out from any caller. Don't use the OIDC `job_workflow_*` claims (every caller would have to grant `id-token: write`) or `github.workflow_sha` (that's the caller's). Don't pass the ref as an input either, because it duplicates the pin and can drift.
 - **CI-tools lock moves.** The central repo keeps its own hash-locked `tools/uv.lock` for `semgrep`, `diff-cover`, `pre-commit` and `pyyaml` (for the merge-gate check), and runs them from the self-checkout. The generated repo's `.github/tools` keeps only `copier`, for `template-update.yml`. `diff-cover` is no longer a dev dependency of the Python project.
 - **The self-checkout leaves the workspace.** `actions/checkout` can only write under the workspace, so the workflow moves `.central` to `$RUNNER_TEMP/central` straight away. Otherwise Semgrep and OSV-Scanner would scan the central repo's files as if they were the caller's.
-- **Verify on the first build:** no live run has yet confirmed that `job.workflow_sha` equals the `@<sha>` pin. Behaviour in nested reusable workflows is untested. Add a step that fails if they differ, or check it by hand once.
+- **Verified on the first build (2026-11-11):** a live run confirmed that `job.workflow_sha` equals the `@<sha>` pin. Behaviour in nested reusable workflows is still untested.
 
 ## 7. Release coupling: central releases and template releases
 
@@ -178,10 +178,13 @@ Two repos were adopted at template v0.3.0 and updated to v0.4.2: `forge-lab` and
 
 ## Build checklist
 
-1. Create public `ZeleMate/workflows` with the five reusable workflows, its own CI and tool lock, and cut `v1.0.0`. **Built locally; not yet published or tagged.**
-2. Rewrite `ci.yml.jinja` and `security.yml.jinja` as caller workflows pinned to that release. **Done**, pinned to the commit that will become `v1.0.0`.
+1. Create public `ZeleMate/workflows` with the five reusable workflows, its own CI and tool lock, and cut `v1.0.0`. **Done:** published and tagged `v1.0.0` at `95244ca`.
+2. Rewrite `ci.yml.jinja` and `security.yml.jinja` as caller workflows pinned to that release. **Done**, pinned to `v1.0.0`.
 3. Add the `central-workflows` Dependabot group, and exclude `ZeleMate/workflows` from `actions`. **Done.**
 4. Add the copied automerge workflow, and the deliberate-skip comment in `claude-review.yml`. **Done.**
 5. Trim `.github/tools` to `copier`. **Done.**
 6. Add the pin-moving script and the one-SHA template check under `scripts/`. **Done:** `bump-central-pin.sh` and `check-central-pins.sh`; `test-template.sh` runs the check.
-7. Generate a test repo, and confirm the merge gate goes green on a normal PR and on a Dependabot PR, and that `job.workflow_sha` matches the pin. **Open:** needs the published repo.
+7. Generate a test repo, and confirm the merge gate goes green on a normal PR and on a Dependabot PR, and that `job.workflow_sha` matches the pin. **Partly done**, in the private repo `ZeleMate/template-smoke-test` (Python and TypeScript):
+   - The merge gate is green on a push and on a normal PR, with changed-line coverage running in both languages.
+   - `job.workflow_sha` equals the pin: the self-checkout fetched `95244ca`, the SHA in the caller.
+   - **Not covered:** a Dependabot PR and the automerge workflow (the test repo is private on Free, which gets no automerge workflow), and `rust.yml` called from another repo.
