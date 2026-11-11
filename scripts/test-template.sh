@@ -1,13 +1,27 @@
 #!/usr/bin/env bash
 # Generate the template for several answer sets and check the output.
 #   ./scripts/test-template.sh [outdir]
-# Needs: uv, pnpm, node; cargo optional (Rust checks are skipped without it); actionlint + zizmor optional.
+# Needs: uv, pnpm, node, git; cargo optional (Rust checks are skipped without it); actionlint, zizmor and osv-scanner optional.
 set -euo pipefail
 
 TEMPLATE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$(mktemp -d)}"
 mkdir -p "$OUT"
 rm -f "$OUT/.failed"
+
+# pre-commit and Semgrep run from the central workflow repo's tool lock, at the SHA the template pins.
+# CENTRAL_DIR=<local clone> skips the download (for testing an unreleased central change).
+"$TEMPLATE/scripts/check-central-pins.sh"
+CENTRAL_SHA=$("$TEMPLATE/scripts/check-central-pins.sh" --sha)
+if [[ -z "${CENTRAL_DIR:-}" ]]; then
+  CENTRAL_DIR="$OUT/.central"
+  if [[ "$(git -C "$CENTRAL_DIR" rev-parse HEAD 2>/dev/null)" != "$CENTRAL_SHA" ]]; then
+    rm -rf "$CENTRAL_DIR"; git init -q "$CENTRAL_DIR"
+    git -C "$CENTRAL_DIR" fetch -q --depth 1 https://github.com/ZeleMate/workflows.git "$CENTRAL_SHA"
+    git -C "$CENTRAL_DIR" checkout -q FETCH_HEAD
+  fi
+fi
+TOOLS="$CENTRAL_DIR/tools"
 
 check() { # name, command...
   local name=$1; shift
@@ -31,8 +45,14 @@ lint_workflows() {
   check "bootstrap syntax" bash -n "$d/scripts/bootstrap-github.sh"
   check "json valid" sh -c "for f in \"$d\"/.claude/settings.json \"$d\"/.github/rulesets/main.json \"$d\"/release-please-config.json \"$d\"/.release-please-manifest.json; do python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
   check "ci tools lock" uv lock --check --project "$d/.github/tools"
-  check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --project .github/tools pre-commit run --all-files"
-  grep -q semgrep "$d/.github/workflows/security.yml" && check "semgrep (as in security.yml)" sh -c "cd \"$d\" && EIO_BACKEND=posix uv run --locked --project .github/tools semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
+  check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --no-build --project \"$TOOLS\" pre-commit run --all-files"
+  check "merge gate lists every job" uv run --locked --no-build --project "$TOOLS" python "$CENTRAL_DIR/scripts/check_merge_gate.py" "$d/.github/workflows/ci.yml" ci-ok
+  grep -q "sast: true" "$d/.github/workflows/security.yml" && check "semgrep (as in the central security workflow)" sh -c "cd \"$d\" && EIO_BACKEND=posix uv run --locked --no-build --project \"$TOOLS\" semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
+  # Same scan as the central security workflow: a fresh repo must not start with a red merge gate.
+  if command -v osv-scanner >/dev/null; then
+    osv_args=(scan source --recursive); [[ -f "$d/evals/run.py.lock" ]] && osv_args+=(--lockfile "uv.lock:$d/evals/run.py.lock")
+    check "osv-scanner" osv-scanner "${osv_args[@]}" "$d"
+  fi
   check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -e '\[\[ ' -e '\[% ' \"$d\" | grep -v pnpm-lock"
 }
 

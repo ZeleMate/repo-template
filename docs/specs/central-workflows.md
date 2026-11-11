@@ -2,9 +2,11 @@
 
 The target layout for [ADR 0001](../adr/0001-centralise-ci-and-security-workflows.md). Generated repos call CI and security from a central workflow repo, and every other workflow stays copied. Terms (template, generated repo, caller workflow, central workflow repo, central release, copied workflow, merge gate) are defined in [CONTEXT.md](../../CONTEXT.md).
 
-This spec comes from the map [Centralise CI and update policy, or keep copying it?](https://github.com/ZeleMate/repo-template/issues/2). Each section names the closed ticket it comes from. No generated repos exist yet, so nothing needs migrating. The template is changed once, in place.
+This spec comes from the map [Centralise CI and update policy, or keep copying it?](https://github.com/ZeleMate/repo-template/issues/2). Each section names the closed ticket it comes from. The template is changed once, in place. Two generated repos already exist and are covered in section 10.
 
-Out of scope: a settings drift checker for generated repos, Claude Code guard hooks, and the build itself.
+Out of scope: a settings drift checker for generated repos and Claude Code guard hooks.
+
+**Status (2026-11-11):** built and live. `ZeleMate/workflows` is public and tagged `v1.0.0`. See the build checklist at the end for what the live test did and did not cover.
 
 ## 1. The central workflow repo
 
@@ -50,16 +52,24 @@ _From [How do caller workflows pass settings to central CI?](https://github.com/
 
 | Setting (Copier answer today) | Source after the move |
 |---|---|
-| `node_version` | `package.json` `engines`, via `setup-node`'s `node-version-file` |
+| `node_version` | `node-version` input that Copier writes. `package.json` `engines` is the fallback when the input is empty (see the correction below) |
 | `rust_toolchain` | `rust-toolchain.toml` |
 | `python_version` | `python-versions` input: a JSON list of minor versions that Copier writes, so no job computes the matrix |
 | `python_type_checker` | `type-checker` input (`pyright` or `mypy`) |
 | `py_dir`, `ts_dir`, `rs_dir` | a working-directory input on each language workflow |
 | `ts_linter`, `rust_msrv` | no input: CI never reads them |
 
-The exact input names are the builder's call. Changing them later costs a central major release (section 7).
+Changing an input name later costs a central major release (section 7). The names as built:
 
-Open for the builder: the central `security.yml` must know whether to run `sast` (semgrep), which today runs only when `is_public` is false. No ticket names the input for this. A boolean input written by Copier fits the rule above.
+| Central workflow | Inputs |
+|---|---|
+| `repo-lint.yml` | `skip-hooks`, `ci-workflow`, `merge-gate-job` (all optional) |
+| `python.yml` | `python-versions` (required), `type-checker`, `working-directory` |
+| `typescript.yml` | `node-version`, `working-directory` |
+| `rust.yml` | `working-directory` |
+| `security.yml` | `sast` (boolean, Copier writes `true` for private repos) |
+
+**Correction, Node version.** The earlier plan read the Node version from `package.json` `engines` and took no input. The template writes `engines` as a range (`>=26`), and `setup-node` resolves a range to the newest release that satisfies it, so CI would drift onto a non-LTS major. The caller now passes `node-version`, and `engines` is only the fallback.
 
 **Secrets.**
 - Named secrets only (`secrets: NAME: ${{ secrets.NAME }}`). Never `secrets: inherit`, which is unverified for personal accounts.
@@ -100,8 +110,9 @@ uses: ZeleMate/workflows/.github/workflows/python.yml@<40-char sha> # v1.4.0
 ```
 
 - No `id-token: write` and no secret are needed. The repo is public, so the default `GITHUB_TOKEN` can check it out from any caller. Don't use the OIDC `job_workflow_*` claims (every caller would have to grant `id-token: write`) or `github.workflow_sha` (that's the caller's). Don't pass the ref as an input either, because it duplicates the pin and can drift.
-- **CI-tools lock moves.** The central repo keeps its own hash-locked `uv.lock` for `semgrep`, `diff-cover` and `pre-commit`, and runs them from the self-checkout. The generated repo's `.github/tools` keeps only `copier`, for `template-update.yml`.
-- **Verify on the first build:** no live run has yet confirmed that `job.workflow_sha` equals the `@<sha>` pin. Behaviour in nested reusable workflows is untested. Add a step that fails if they differ, or check it by hand once.
+- **CI-tools lock moves.** The central repo keeps its own hash-locked `tools/uv.lock` for `semgrep`, `diff-cover`, `pre-commit` and `pyyaml` (for the merge-gate check), and runs them from the self-checkout. The generated repo's `.github/tools` keeps only `copier`, for `template-update.yml`. `diff-cover` is no longer a dev dependency of the Python project.
+- **The self-checkout leaves the workspace.** `actions/checkout` can only write under the workspace, so the workflow moves `.central` to `$RUNNER_TEMP/central` straight away. Otherwise Semgrep and OSV-Scanner would scan the central repo's files as if they were the caller's.
+- **Verified on the first build (2026-11-11):** a live run confirmed that `job.workflow_sha` equals the `@<sha>` pin. Behaviour in nested reusable workflows is still untested.
 
 ## 7. Release coupling: central releases and template releases
 
@@ -134,6 +145,7 @@ _From [Renovate or Dependabot for update policy?](https://github.com/ZeleMate/re
 - **New copied workflow** (e.g. `dependabot-automerge.yml`) in each generated repo, not in the central repo, because it holds `contents: write` and `pull-requests: write`. It runs only on Dependabot PRs: `dependabot/fetch-metadata`, then `gh pr merge --auto --squash`. The merge always waits for the merge gate.
 - **Rule:** automerge any Dependabot PR whose update type is not major, in every ecosystem (Actions, central workflows, CI-tools lock, app dependencies). A grouped PR counts as its highest update type. Majors stay manual, Actions majors included. Security updates follow the same rule. They skip the cooldown by design, but the merge gate still has to pass.
 - **Requires:** auto-merge allowed on the repo, and `ci-ok` as a required check. `bootstrap-github.sh` already sets both.
+- **Only where the ruleset exists.** Copier writes the workflow for public repos and for private repos on Pro. A private repo on Free has no ruleset, so nothing would make the merge wait for the merge gate. Those repos merge Dependabot PRs by hand.
 - **Reviewers don't stall it.** `claude-review.yml` already skips bot PRs (`user.type != 'Bot'`). Add a comment saying the skip is deliberate. A major update is reviewed by starting `claude-review.yml` by hand with `workflow_dispatch`. `.coderabbit.yaml` already ignores `dependabot[bot]`. `required_review_thread_resolution` stays on for every PR.
 
 ## 9. What the template still copies
@@ -148,16 +160,31 @@ _From [Centralise the workflows, and which ones?](https://github.com/ZeleMate/re
 | `claude-review.yml` | copied workflow | Small. Its trust boundary is easier to audit in place. `REVIEW.md` is the real lever |
 | `evals.yml` | copied workflow | Tied to the repo's own `evals/run.py` |
 | `template-update.yml` | copied workflow | About the repo's own template version |
-| `dependabot-automerge.yml` (new) | copied workflow | Holds write permissions |
+| `dependabot-automerge.yml` (new, public or Pro only) | copied workflow | Holds write permissions |
 | `dependabot.yml` | config | Per-repo update policy, with the new `central-workflows` group |
 | `.github/tools/` | CI-tools lock | Now `copier` only |
 
+## 10. Repos generated before the central workflows
+
+_Added 2026-11-10. The spec first assumed no generated repos existed._
+
+Two repos were adopted at template v0.3.0 and updated to v0.4.2: `forge-lab` and `DeepSeek-demo-implementation`. Both kept their own toolchain and rewrote `ci.yml`, so neither uses the template's language jobs:
+
+- **`ci.yml` stays theirs.** The template update that brings the caller workflows will conflict across the whole file. Keep the repo's side. Their stack (Bun, Biome, Lefthook) is one the central repo doesn't support, which section 5 already allows: local jobs, all listed in `ci-ok.needs`.
+- **`security.yml` can become a caller.** Both repos call it from `ci.yml` and run it weekly. Replace the local file with the caller, and change the call in `ci.yml` from the local file to the central `security.yml` at the same pin. Each repo keeps its own Gitleaks job or drops it for the central one, but not both.
+- **`repo-lint.yml` is optional for them.** Its pre-commit step needs a `.pre-commit-config.yaml`, which both repos replaced with Lefthook. Its merge-gate check is the part worth having. Until the two are split, these repos don't call it.
+- **Dependabot:** add the `central-workflows` group and the major-version ignore, as section 7 describes.
+- **`.github/tools`** already holds what `template-update.yml` needs. Trimming it to `copier` is safe once nothing else in the repo runs tools from it.
+
 ## Build checklist
 
-1. Create public `ZeleMate/workflows` with the five reusable workflows, its own CI and tool lock, and cut `v1.0.0`.
-2. Rewrite `ci.yml.jinja` and `security.yml.jinja` as caller workflows pinned to that release.
-3. Add the `central-workflows` Dependabot group, and exclude `ZeleMate/workflows` from `actions`.
-4. Add the copied automerge workflow, and the deliberate-skip comment in `claude-review.yml`.
-5. Trim `.github/tools` to `copier`.
-6. Add the pin-moving script and the one-SHA template check under `scripts/`.
-7. Generate a test repo, and confirm the merge gate goes green on a normal PR and on a Dependabot PR, and that `job.workflow_sha` matches the pin.
+1. Create public `ZeleMate/workflows` with the five reusable workflows, its own CI and tool lock, and cut `v1.0.0`. **Done:** published and tagged `v1.0.0` at `95244ca`.
+2. Rewrite `ci.yml.jinja` and `security.yml.jinja` as caller workflows pinned to that release. **Done**, pinned to `v1.0.0`.
+3. Add the `central-workflows` Dependabot group, and exclude `ZeleMate/workflows` from `actions`. **Done.**
+4. Add the copied automerge workflow, and the deliberate-skip comment in `claude-review.yml`. **Done.**
+5. Trim `.github/tools` to `copier`. **Done.**
+6. Add the pin-moving script and the one-SHA template check under `scripts/`. **Done:** `bump-central-pin.sh` and `check-central-pins.sh`; `test-template.sh` runs the check.
+7. Generate a test repo, and confirm the merge gate goes green on a normal PR and on a Dependabot PR, and that `job.workflow_sha` matches the pin. **Partly done**, in the private repo `ZeleMate/template-smoke-test` (Python and TypeScript):
+   - The merge gate is green on a push and on a normal PR, with changed-line coverage running in both languages.
+   - `job.workflow_sha` equals the pin: the self-checkout fetched `95244ca`, the SHA in the caller.
+   - **Not covered:** a Dependabot PR and the automerge workflow (the test repo is private on Free, which gets no automerge workflow), and `rust.yml` called from another repo.
