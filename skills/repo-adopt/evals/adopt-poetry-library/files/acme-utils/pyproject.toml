@@ -9,7 +9,7 @@ packages = [{ include = "acme_utils", from = "src" }]
 python = "^3.12"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.0"
+pytest = "^9.0.3"
 
 [build-system]
 requires = ["poetry-core"]
