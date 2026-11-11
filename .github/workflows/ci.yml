@@ -53,7 +53,7 @@ jobs:
           OSV_SHA256: "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
-          curl -fsSL -o "$RUNNER_TEMP/bin/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/osv-scanner_linux_amd64"
+          curl --proto '=https' --tlsv1.2 -fsSL -o "$RUNNER_TEMP/bin/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/osv-scanner_linux_amd64"
           echo "${OSV_SHA256}  $RUNNER_TEMP/bin/osv-scanner" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/bin/osv-scanner"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
