@@ -79,3 +79,25 @@ updates:
     commit-message:
       prefix: deps
 [% endif %]
+[% set managed_root = [] %]
+[% if not multi_lang %]
+[% for l in languages %][% set _ = managed_root.append({'python': 'uv', 'typescript': 'npm', 'rust': 'cargo'}[l]) %][% endfor %]
+[% endif %]
+[% for eco in extra_ecosystems if eco not in managed_root %]
+
+  # Named in the `extra_ecosystems` answer: this repo's own stack, not a managed language.
+  - package-ecosystem: [[ eco ]]
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+[% if eco != 'docker' %]
+      semver-major-days: 14
+[% endif %]
+    groups:
+      [[ eco ]]-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+[% endfor %]

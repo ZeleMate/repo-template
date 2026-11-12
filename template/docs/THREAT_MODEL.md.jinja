@@ -56,7 +56,7 @@ Edition-tagged: OWASP Top 10 for LLM Applications **2026**, OWASP Top 10 for Age
 | LLM10 Improper Output Handling | Model output reaches shell/SQL/HTML | Schema validation before use; parameterised calls | unit tests | open |
 | ASI09 Human-Agent Trust Exploitation | User approves a harmful action the agent framed as safe | Show exact action and diff before approval | — | open |
 
-NIST SP 800-218A tasks covered: PW.1.1 (this section), PW.4.4 (pinned models/MCP), PW.5.1 (output validation), RV.1.1 (model I/O logging, see `slo.md`), RV.1.3 (SECURITY.md scope).
+NIST SP 800-218A tasks covered: PW.1.1 (this section), PW.4.4 (pinned models/MCP), PW.5.1 (output validation), RV.1.1 (model I/O logging[% if not baseline %], see `slo.md`[% endif %]), RV.1.3 (SECURITY.md scope).
 [% endif %]
 
 ## 6. Accepted risks

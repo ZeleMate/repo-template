@@ -7,6 +7,10 @@ Guidance for coding agents (Claude Code, Codex, Copilot, Cursor) working in **[[
 
 Run these before saying a change is done. CI runs the same ones.
 
+[% if baseline %]
+The template manages no language toolchain in this repo. Its own checks are the jobs in `.github/workflows/ci-local.yml`: run the commands those jobs run. List them here once they exist.
+
+[% endif %]
 [% if 'python' in languages %]
 ### Python[% if multi_lang %] (`[[ py_dir ]]/`)[% endif +%]
 
@@ -52,12 +56,12 @@ Repo-wide hooks: `uvx pre-commit run --all-files` (or `prek run --all-files`).
 - Commits and PR titles follow Conventional Commits 1.0 (`feat:`, `fix:`, `chore:`, `feat!:` for breaking). PRs are squash-merged, so the PR title becomes the commit and drives the version bump.
 - Keep PRs small and focused on one change. Link the issue or ADR the change implements.
 - Record architecture decisions as MADR files in `docs/decisions/NNNN-title.md`.
-- New behaviour needs tests. Changed lines need at least 90% coverage (enforced in CI).
+- New behaviour needs tests.[% if not baseline %] Changed lines need at least 90% coverage (enforced in CI).[% endif +%]
 
 ## Dependencies
 
 - Add a dependency only after checking the package exists on the official registry, is maintained, and is the one you meant. AI-suggested package names are sometimes invented ("slopsquatting").
-- Never edit lockfiles by hand. Use the package manager (`uv add`, `pnpm add`, `cargo add`).
+- Never edit lockfiles by hand. Use the package manager[% if not baseline %] (`uv add`, `pnpm add`, `cargo add`)[% endif %].
 - New releases are held back by a cooldown (7 days). Do not bypass it.
 
 ## Security rules
