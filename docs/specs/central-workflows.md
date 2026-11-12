@@ -81,7 +81,7 @@ _From [Centralise the workflows, and which ones?](https://github.com/ZeleMate/re
 
 - `ci-ok` stays in the caller `ci.yml`, keeps its job name (the ruleset requires it) and stays the single required status check.
 - It `needs:` **every** job in the caller: central calls and local jobs alike. It fails if any of them failed or was cancelled, as today.
-- A repo whose stack the central repo doesn't support adds a local job and lists it in `ci-ok.needs`. A stack that keeps coming back gets promoted to a template language: a Copier choice, a central workflow, and a pin bump.
+- **Superseded by [ADR 0002](../adr/0002-baseline-repos-with-no-managed-language.md):** a repo's own jobs no longer go into `ci.yml`. They go into the local CI workflow, `ci-local.yml`, which the template writes once and never updates. `ci.yml` calls it as the `local` job and lists that job in `ci-ok.needs`. A stack that keeps coming back still gets promoted to a template language: a Copier choice, a central workflow, and a pin bump.
 - **Central `repo-lint.yml` checks this:** it fails if any job in the caller `ci.yml` is missing from `ci-ok.needs`.
 
 ## 6. Pinning and self-checkout
@@ -170,7 +170,7 @@ _Added 2026-11-10. The spec first assumed no generated repos existed._
 
 Two repos were adopted at template v0.3.0 and updated to v0.4.2: `forge-lab` and `DeepSeek-demo-implementation`. Both kept their own toolchain and rewrote `ci.yml`, so neither uses the template's language jobs:
 
-- **`ci.yml` stays theirs.** The template update that brings the caller workflows will conflict across the whole file. Keep the repo's side. Their stack (Bun, Biome, Lefthook) is one the central repo doesn't support, which section 5 already allows: local jobs, all listed in `ci-ok.needs`.
+- **`ci.yml` goes back to the template.** Under ADR 0002 both repos become baseline repos (`languages: []`): their Bun and Biome jobs move into `ci-local.yml`, and `ci.yml` is the template's caller again, so later updates stop conflicting there.
 - **`security.yml` can become a caller.** Both repos call it from `ci.yml` and run it weekly. Replace the local file with the caller, and change the call in `ci.yml` from the local file to the central `security.yml` at the same pin. Each repo keeps its own Gitleaks job or drops it for the central one, but not both.
 - **`repo-lint.yml` is optional for them.** Its pre-commit step needs a `.pre-commit-config.yaml`, which both repos replaced with Lefthook. Its merge-gate check is the part worth having. Until the two are split, these repos don't call it.
 - **Dependabot:** add the `central-workflows` group and the major-version ignore, as section 7 describes.

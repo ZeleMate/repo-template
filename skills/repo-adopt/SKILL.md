@@ -20,12 +20,28 @@ Collect what the answers depend on, and what will collide:
 - Existing CI (`.github/workflows/`), pre-commit config, Dependabot/Renovate, release tooling, `AGENTS.md`/`CLAUDE.md`/`.claude/`, licence, SECURITY.md, docs.
 - GitHub facts: `gh repo view --json visibility,owner,name`.
 
+### Secrets already in history
+
+Before anything else lands, scan the full history, because the template's CI runs Gitleaks on every commit of every branch and would start red:
+
+```bash
+gitleaks git --redact --no-banner .
+```
+
+Stop on any finding and go through each with the user:
+
+- **A real secret:** the owner rotates it first. Only then add its fingerprint (the `Fingerprint:` line Gitleaks prints) to `.gitleaksignore` with a comment giving the rotation date. Never add a fingerprint for a secret that is still valid.
+- **A false positive:** add the fingerprint with a comment saying why it isn't a secret.
+
+Don't rewrite history. In a public repo the value is already exposed, so only rotation removes the risk. CI then starts green and still fails on a new secret.
+
 ## 2. Agree the answers and the scope
 
 Draft the answers from the survey (visibility, owner and slug come from GitHub; author from git config). Then talk through, with the user, every place where the template's choice differs from what the repo does today. For each, the options are adopt the template's tool (migrate), or keep theirs and adapt the template file. Recommend, don't decide:
 
 - A tool swap that's mostly config (mypy → pyright, adding Ruff, npm → pnpm) is usually worth it.
 - A swap that touches lots of code or habits (Poetry → uv with many extras, Jest → Vitest with heavy mocks) can be its own follow-up PR; keep their tool and wire it into the template's CI job for now.
+- **A repo that keeps its whole stack becomes a baseline repo.** If the repo doesn't use uv, Ruff and strict typing for Python, or pnpm, ESLint and Vitest for TypeScript, and the user doesn't want to migrate, answer `languages: []` and name its package ecosystems in `extra_ecosystems`. The template then writes no toolchain, release or ops files, and the repo's own CI jobs move into `.github/workflows/ci-local.yml` (step 4). This is the usual answer for an existing repo; the full template fits a repo already on the template's toolchain.
 - Never silently drop an existing CI job or check. If the template has no equivalent, keep it in their workflow and make it a dependency of `ci-ok`.
 
 ## 3. Render to a scratch folder
@@ -48,6 +64,7 @@ Walk the rendered tree (`find <scratch>/rendered -type f -not -path '*/.venv/*' 
 | Exists and is pure config (`.pre-commit-config.yaml`, `.gitignore`, `dependabot.yml`, linter configs) | Merge: template content as the base, plus the repo's extra entries. |
 | Exists and is the project's own (`README.md`, `pyproject.toml`/`package.json`/`Cargo.toml`, source, tests, `LICENSE`, `CHANGELOG.md`) | Keep theirs; port only the template's tool settings into it (e.g. the `[tool.ruff]`, `[tool.pyright]`, coverage and `exclude-newer` sections; the package.json scripts CI calls: `format:check`, `lint`, `typecheck`, `test:coverage`, `build`). |
 | The template's placeholder code (`src/<pkg>/__init__.py`, `src/index.ts`, `src/lib.rs`, `tests/test_smoke.py`, `test/index.test.ts`) | Skip. |
+| `.github/workflows/ci-local.yml` | The repo owns this file; the template never updates it. Move the repo's existing CI jobs into it as jobs of a reusable workflow (`on: workflow_call`), replacing the no-op job. Keep every action pinned to a full SHA, give each job its own `permissions`, and make sure no job needs a secret (Dependabot PRs get none). Delete the old workflow those jobs came from, so they don't run twice. |
 | Existing CI workflows | Replace with the template's `ci.yml`, `security.yml`, `release.yml`, then re-add any job the template lacks and add it to `ci-ok`'s `needs`. Keep every action pinned to a full SHA with a version comment. The template's `ci.yml` only calls reusable workflows in `ZeleMate/workflows`; if the repo keeps a toolchain those don't support (Bun, Poetry, Jest), drop that language's call, keep the repo's own job in `ci.yml`, and still call `security.yml` and `repo-lint.yml`. |
 
 If the layout differs from the template's (say Python under `backend/`), fix paths in the copied files: the `working-directory` inputs in `ci.yml`, the `uv run --project` / `pnpm --dir` paths in `.claude/hooks/format.sh`, and `paths` in `release-please-config.json`.
