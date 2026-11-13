@@ -53,14 +53,32 @@ github_owner:
 # ---------------------------------------------------------------- shape
 languages:
   type: str
-  help: Languages in this repo (one = files at the root; several = one folder each)
+  help: >-
+    Managed languages: the template writes and updates their toolchain, CI and releases
+    (one = files at the root; several = one folder each). Pick none for a baseline repo
+    that keeps its own stack: it gets security scanning, Dependabot, the merge gate and agent config only
   multiselect: true
   choices:
     Python: python
     TypeScript: typescript
     Rust: rust
   default: [python]
-  validator: "[% if not languages %]Pick at least one[% endif %]"
+
+extra_ecosystems:
+  type: str
+  help: >-
+    Dependabot ecosystems at the repo root that the managed languages don't cover
+    (for a baseline repo: whatever its own stack uses). GitHub Actions is always on
+  multiselect: true
+  choices:
+    "pip (requirements.txt, setup.py)": pip
+    "uv (pyproject.toml + uv.lock)": uv
+    "npm (also pnpm and yarn)": npm
+    Bun: bun
+    Cargo: cargo
+    Go modules: gomod
+    Docker: docker
+  default: []
 
 visibility:
   type: str
@@ -89,6 +107,8 @@ publishes:
   type: bool
   help: Will you publish packages to PyPI / npm / crates.io?
   default: false
+  # The template only releases managed languages; a baseline repo keeps its own release workflow.
+  when: "[[ languages | length > 0 ]]"
 
 # ---------------------------------------------------------------- third-party services
 ai_reviewers:
@@ -171,6 +191,10 @@ rs_dir:
   type: str
   default: "[% if languages | length > 1 %]rust[% else %].[% endif %]"
   when: false
+baseline:
+  type: bool
+  default: "[[ languages | length == 0 ]]"
+  when: false
 is_public:
   type: bool
   default: "[[ visibility == 'public' ]]"
@@ -183,6 +207,10 @@ is_oss:
   type: bool
   default: "[[ license != 'Proprietary' ]]"
   when: false
+
+# The local CI workflow is written once and then belongs to the repo (ADR 0002).
+_skip_if_exists:
+  - .github/workflows/ci-local.yml
 
 # ---------------------------------------------------------------- post-generation (local only)
 _tasks:

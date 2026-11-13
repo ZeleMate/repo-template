@@ -2,7 +2,8 @@ name: CI
 
 # Caller workflow: each job below calls a reusable workflow in ZeleMate/workflows, all pinned
 # to the same release SHA. Dependabot moves the pin through minor and patch releases; a major
-# arrives with a template update. A job of your own goes here too: add it to ci-ok's needs.
+# arrives with a template update. This file is the template's: put jobs of your own in
+# ci-local.yml, which the `local` job below calls and the merge gate waits on.
 on:
   pull_request:
   push:
@@ -60,6 +61,12 @@ jobs:
       # Semgrep runs on private repos; public repos use CodeQL default setup instead.
       sast: [[ 'false' if is_public else 'true' ]]
 
+  # This repo's own jobs. ci-local.yml is written once by the template and never updated.
+  local:
+    uses: $/.github/workflows/ci-local.yml
+    permissions:
+      contents: read
+
   # The merge gate: the single required status check for the ruleset.
   # Fails if any job failed or was cancelled. repo-lint checks that every job is listed here.
   ci-ok:
@@ -71,6 +78,7 @@ jobs:
       - [[ l ]]
 [% endfor %]
       - security
+      - local
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

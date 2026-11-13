@@ -25,6 +25,7 @@ out = {
     "CODERABBIT": "yes" if "coderabbit" in (a.get("ai_reviewers") or []) else "no",
     "SONAR": "yes" if a.get("quality_platform") == "sonarqube-cloud" else "no",
     "SRC": a.get("_src_path", ""),
+    "BASELINE": "no" if a.get("languages") else "yes",
 }
 for k, v in out.items():
     print(f"{k}={shlex.quote(str(v))}")
@@ -102,7 +103,9 @@ fi
 
 echo "==> secrets (names only)"
 names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null) || { skip "cannot list secrets (needs admin)"; names=""; }
-want=(RELEASE_PLEASE_TOKEN)
+want=()
+# The template's release workflow exists only where it manages a language.
+[[ "$BASELINE" = no ]] && want+=(RELEASE_PLEASE_TOKEN)
 [[ "$CLAUDE" = yes ]] && want+=(CLAUDE_CODE_OAUTH_TOKEN)
 [[ "$AGENTIC" = yes ]] && want+=(EVAL_ANTHROPIC_API_KEY)
 # The weekly template update check can only read a private template with TEMPLATE_READ_TOKEN.
@@ -116,7 +119,7 @@ if [[ "$tpl" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
 else
   skip "template source '$SRC' is not a GitHub repo, so the weekly update check cannot reach it"
 fi
-for s in "${want[@]}"; do
+for s in ${want[@]+"${want[@]}"}; do
   if grep -qx "$s" <<<"$names"; then ok "secret $s set"; else bad "secret $s missing"; fi
 done
 

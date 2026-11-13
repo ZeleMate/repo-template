@@ -43,7 +43,7 @@ lint_workflows() {
   command -v actionlint >/dev/null && check "actionlint" sh -c "cd \"$d\" && actionlint -no-color"
   command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity medium "$d/.github/workflows"
   check "bootstrap syntax" bash -n "$d/scripts/bootstrap-github.sh"
-  check "json valid" sh -c "for f in \"$d\"/.claude/settings.json \"$d\"/.github/rulesets/main.json \"$d\"/release-please-config.json \"$d\"/.release-please-manifest.json; do python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
+  check "json valid" sh -c "for f in \"$d\"/.claude/settings.json \"$d\"/.github/rulesets/main.json \"$d\"/release-please-config.json \"$d\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
   check "ci tools lock" uv lock --check --project "$d/.github/tools"
   check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --no-build --project \"$TOOLS\" pre-commit run --all-files"
   check "merge gate lists every job" uv run --locked --no-build --project "$TOOLS" python "$CENTRAL_DIR/scripts/check_merge_gate.py" "$d/.github/workflows/ci.yml" ci-ok
@@ -114,6 +114,27 @@ gen multi -d languages='[python, typescript, rust]' -d visibility=private -d git
   -d python_type_checker=mypy -d quality_platform=sonarqube-cloud -d publishes=true
 lint_workflows "$OUT/multi"; check_evals "$OUT/multi"
 check_python "$OUT/multi/python"; check_ts "$OUT/multi/typescript"; check_rust "$OUT/multi/rust"
+
+# Baseline repos (ADR 0002): no managed language, so none of the left-out files may render.
+check_baseline() {
+  local d=$1
+  check "baseline leaves out toolchain, release and ops files" sh -c "cd \"$d\" && for f in README.md CONTRIBUTING.md CHANGELOG.md release-please-config.json .release-please-manifest.json .github/workflows/release.yml docs/slo.md docs/dependencies.md docs/runbooks pyproject.toml package.json Cargo.toml python typescript rust; do [ ! -e \"\$f\" ] || { echo \"unexpected \$f\"; exit 1; }; done"
+  check "baseline keeps the merge gate and local CI" sh -c "cd \"$d\" && for f in .github/workflows/ci.yml .github/workflows/ci-local.yml .github/workflows/security.yml .github/dependabot.yml AGENTS.md CLAUDE.md SECURITY.md .pre-commit-config.yaml scripts/bootstrap-github.sh docs/SETUP.md; do [ -e \"\$f\" ] || { echo \"missing \$f\"; exit 1; }; done"
+}
+
+echo "==> baseline, public, agentic, bun + docker"
+gen base-pub -d languages='[]' -d visibility=public -d agentic=true -d extra_ecosystems='[bun, docker]'
+lint_workflows "$OUT/base-pub"; check_baseline "$OUT/base-pub"; check_evals "$OUT/base-pub"
+check "extra ecosystems reach dependabot" sh -c "grep -q 'package-ecosystem: bun' \"$OUT/base-pub/.github/dependabot.yml\" && grep -q 'package-ecosystem: docker' \"$OUT/base-pub/.github/dependabot.yml\""
+
+echo "==> baseline, private free, not agentic, no extra ecosystems"
+gen base-priv -d languages='[]' -d visibility=private -d agentic=false -d ai_reviewers='[]'
+lint_workflows "$OUT/base-priv"; check_baseline "$OUT/base-priv"
+
+echo "==> python with an extra ecosystem that collides (uv) and one that doesn't (docker)"
+gen py-extra -d languages='[python]' -d agentic=false -d extra_ecosystems='[uv, docker]'
+check "no duplicate dependabot entry for a managed ecosystem" sh -c "[ \"\$(grep -c 'directory: /\$' \"$OUT/py-extra/.github/dependabot.yml\")\" = 3 ]"
+check "ci-local.yml is never overwritten" sh -c "cd \"$OUT/py-extra\" && echo '# mine' >> .github/workflows/ci-local.yml && git add -A && git -c user.name=t -c user.email=t@example.com commit -qm init && uvx copier recopy --trust --defaults --quiet --vcs-ref HEAD --overwrite . >/dev/null 2>&1; grep -q '# mine' .github/workflows/ci-local.yml"
 
 echo
 [[ ! -e "$OUT/.failed" ]] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }

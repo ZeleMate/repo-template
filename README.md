@@ -12,7 +12,7 @@ This repo is also a Claude Code plugin, `repo-standards`. Its skills run the who
 /plugin install repo-standards --marketplace ZeleMate/repo-template
 ```
 
-(On Claude Code older than 2.1.275: `/plugin marketplace add ZeleMate/repo-template`, then `/plugin install repo-standards@repo-template`.) The template repo is private, so you need read access to it and `gh auth setup-git` (or SSH) for git to fetch it.
+(On Claude Code older than 2.1.275: `/plugin marketplace add ZeleMate/repo-template`, then `/plugin install repo-standards@repo-template`.)
 
 | Skill | Use it to | Say something like |
 |---|---|---|
@@ -52,7 +52,8 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 
 | Question | Effect |
 |---|---|
-| Languages (Python / TypeScript / Rust) | One language: files at the root. Several: `python/`, `typescript/`, `rust/` folders |
+| Languages (Python / TypeScript / Rust, or none) | One language: files at the root. Several: `python/`, `typescript/`, `rust/` folders. None: a baseline repo that keeps its own stack and gets security scanning, Dependabot, the merge gate and agent config only ([ADR 0002](docs/adr/0002-baseline-repos-with-no-managed-language.md)) |
+| Extra Dependabot ecosystems | Ecosystems at the repo root that the managed languages don't cover (pip, uv, npm, Bun, Cargo, Go modules, Docker) |
 | Visibility (public / private) | Public turns on GitHub's free CodeQL, secret scanning, private vuln reporting and attestations |
 | GitHub plan (free / pro) | Pro makes rulesets and environments work on private repos |
 | Licence | MIT / Apache-2.0 (with REUSE metadata) or proprietary |
@@ -67,6 +68,7 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 | Area | Default | Alternatives you can swap in |
 |---|---|---|
 | CI | GitHub Actions. Every action is pinned to a commit SHA, `permissions: {}` by default, and a single `ci-ok` required check (pinned to the GitHub Actions app). Python runs on every supported minor version. CI and security are short caller workflows that call reusable workflows in the public `ZeleMate/workflows` repo, pinned to one release SHA ([ADR 0001](docs/adr/0001-centralise-ci-and-security-workflows.md)); their tools (pre-commit, diff-cover, Semgrep) are locked with hashes there. Dependabot automerges non-major updates once `ci-ok` is green, where the ruleset exists | — |
+| Your own CI jobs | `.github/workflows/ci-local.yml`: written once, never updated by the template, called by `ci.yml` and part of the merge gate | — |
 | Workflow linting | zizmor + actionlint (pre-commit and CI) | — |
 | Static analysis (security) | **Public:** CodeQL default setup. **Private:** Semgrep CE in CI, because CodeQL needs a paid add-on there | Semgrep AppSec Platform free tier (10 repos, cross-file); Opengrep (LGPL fork) |
 | Code quality dashboard | SonarQube Cloud through its GitHub App (Automatic Analysis: no CI job or CI secret), opt-in. On by default for public repos, where the open-source plan is free and complete | Qlty (free tier); SonarQube Server Community Build (self-hosted) |

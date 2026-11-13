@@ -17,11 +17,11 @@ check() { # name, command...
 }
 
 langs=$(uvx --no-build --quiet --from pyyaml python -c 'import sys, yaml; print(" ".join(yaml.safe_load(open(sys.argv[1]))["languages"]))' "$ANSWERS")
-[[ -z "$langs" ]] && { echo "Could not read languages from $ANSWERS"; exit 2; }
+# An empty list is a baseline repo: no managed language, so only the repo-wide checks run.
 multi=0; [[ "$(wc -w <<<"$langs")" -gt 1 ]] && multi=1
 dir_for() { if [[ "$multi" = 1 ]]; then echo "$REPO/$1"; else echo "$REPO"; fi; }
 
-echo "==> repo-wide ($REPO; languages: $langs)"
+echo "==> repo-wide ($REPO; languages: ${langs:-none, a baseline repo})"
 if command -v actionlint >/dev/null; then
   # Without file arguments actionlint needs a git project, which a fresh scaffold isn't yet.
   cfg=""; [[ -f "$REPO/.github/actionlint.yaml" ]] && cfg="-config-file .github/actionlint.yaml"

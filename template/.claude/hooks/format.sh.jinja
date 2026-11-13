@@ -8,6 +8,10 @@ file=$(jq -r '.tool_input.file_path // empty')
 root="${CLAUDE_PROJECT_DIR:-.}"
 
 case "$file" in
+[% if baseline %]
+  # No managed language: add a pattern and your own formatter here, for example
+  #   *.py) ruff format --quiet "$file" >/dev/null 2>&1 ;;
+[% endif %]
 [% if 'python' in languages %]
   *.py)
     uv run --project "$root/[[ py_dir ]]" --no-sync ruff format --quiet "$file" >/dev/null 2>&1

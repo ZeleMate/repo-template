@@ -26,6 +26,10 @@ The questions themselves (names, types, choices, defaults, validators) live in `
 
 **`languages`** (multiselect: `python`, `typescript`, `rust`). One language puts its files at the repo root; several put each in its own folder (`python/`, `typescript/`, `rust/`) with one shared CI, pre-commit and docs set. Infer from what the user says they are building; ask only when it is unclear.
 
+**Empty `languages` makes a baseline repo.** Pick none when the repo keeps its own stack (Bun, Poetry, pip, conda, notebooks) and should not be moved onto the template's. It then gets security scanning, Dependabot, the merge gate, `ci-local.yml`, agent config, `SECURITY.md` and the GitHub setup script, and nothing else: no language folders, no `release.yml` or release-please config, no `CHANGELOG.md`, `README.md`, `CONTRIBUTING.md`, `docs/slo.md`, `docs/runbooks/` or `docs/dependencies.md`. The template doesn't release a baseline repo, so `publishes` isn't asked. On the command line pass `-d languages='[]'`. Promotion later is an answer change: add the language and run `copier update`.
+
+**`extra_ecosystems`** (multiselect, default empty: `pip`, `uv`, `npm`, `bun`, `cargo`, `gomod`, `docker`). Dependabot ecosystems at the repo root that the managed languages don't cover. For a baseline repo, list whatever its manifests use; a notebook-only repo with no manifest leaves it empty and gets Actions updates only. An ecosystem a managed language already covers at the root is skipped, so it can't be listed twice. OSV-Scanner needs no answer: it finds lockfiles itself.
+
 **`visibility`** (`public` / `private`). The biggest lever, because it decides which GitHub security features are free:
 
 - public: CodeQL default setup, secret scanning with push protection, private vulnerability reporting, artifact attestations and npm provenance all switch on. CodeRabbit and SonarQube Cloud are free.
