@@ -33,6 +33,17 @@ uvx copier update --trust --defaults --conflict inline --vcs-ref <new-tag> [-d n
 
 To change an existing answer (say, the repo went public), pass it with `-d` too; the update then also re-renders everything that answer controls.
 
+### Changing `languages`, especially to `[]`
+
+Copier deletes every file the old answers rendered and the new ones don't, even when the repo has rewritten it. Moving a repo to a baseline (`languages: []`) therefore deletes its `package.json` or `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `docs/dependencies.md`, `docs/runbooks/` and `.claude/rules/<language>.md`. Right after the update, list the deletions and restore the project's own files:
+
+```bash
+git status --short | awk '$1 == "D" {print $2}'
+git checkout HEAD -- <each file the project still needs>
+```
+
+Then follow the `repo-adopt` skill's rule for `ci-local.yml`: move the repo's own CI jobs out of the old `ci.yml` into it, and take the template's `ci.yml` and `security.yml` whole. If the repo has no `.pre-commit-config.yaml`, copy the rendered one in, because the central `repo-lint` job runs it; exclude recorded output and other files the repo keeps byte-for-byte.
+
 ## 4. Resolve conflicts
 
 ```bash
@@ -56,5 +67,7 @@ bash <plugin root>/skills/repo-new/scripts/verify-generated.sh .
 The plugin root is two levels above this skill's base directory. Fix failures caused by the update. If the template itself is broken, report it upstream (the `repo-template-maintain` skill covers fixing it) rather than patching around it here, or the next update conflicts again.
 
 Commit as `chore: update repo template to <new-tag>`. With the user's go-ahead, push and open a PR whose body has the template changelog summary, any new answers given, and how each conflict was resolved. If a "Repo template update available" issue is open, reference it with `Closes #<n>`.
+
+If the repo restricts GitHub Actions to an allowlist (`gh api repos/<owner>/<repo>/actions/permissions` shows `allowed_actions: selected`), it must allow `ZeleMate/*`, `astral-sh/setup-uv@*` and `dependabot/fetch-metadata@*`, or `ci.yml` and `dependabot-automerge.yml` fail at startup with no logs. Changing the list is a repo setting: ask first. The `repo-github-setup` audit checks it.
 
 If the update changed `docs/SETUP.md` or `scripts/bootstrap-github.sh`, mention that the GitHub settings may need re-applying after merge (the `repo-github-setup` skill's audit shows it).
