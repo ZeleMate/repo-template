@@ -22,7 +22,7 @@ This repo is also a Claude Code plugin, `repo-standards`. Its skills run the who
 | `repo-template-update` | Pull a newer template version into a generated repo, resolve conflicts, open a PR | "there's a template update issue, handle it" |
 | `repo-template-maintain` | Work on the template itself: pin refresh, new questions or jobs, `test-template.sh`, tagging a release | "do the quarterly pin bump" |
 
-The skills live in `skills/`; each has test cases in `evals/` that `claude plugin eval skills/<name>` can run.
+The skills live in `skills/` and their eval cases in `evals/<skill>/`; run one suite with `./scripts/run-evals.sh <skill>` (it grants the network and tools the cases need).
 
 ## Quick start by hand
 

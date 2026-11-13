@@ -83,4 +83,6 @@ bash <plugin root>/skills/repo-new/scripts/verify-generated.sh .
 
 Fix what fails. Failures now are usually real issues in the existing code that the stricter checks catch (type errors, lint, low coverage). Fix the trivial ones; for big batches, ask whether to fix now or relax a specific rule with a comment and a follow-up issue, rather than disabling a check wholesale.
 
+If the repo restricts GitHub Actions to an allowlist, check it allows `ZeleMate/*`, `astral-sh/setup-uv@*` and `dependabot/fetch-metadata@*` before pushing; otherwise `ci.yml` fails at startup with no job logs. Ask before changing it.
+
 Commit as `chore: adopt repo template <tag>` and, with the user's go-ahead, push and open a PR whose body lists the merge decisions from step 4 and the follow-ups. After merge, the `repo-github-setup` skill applies the GitHub settings (the bootstrap script detects that the repo already exists) and its audit shows what's missing.

@@ -8,7 +8,7 @@ __pycache__/
 .venv/
 node_modules/
 # skill eval output
-skills/*/evals/results/
+evals/*/results/
 *-workspace/
 
 # Local research material (not part of the template)

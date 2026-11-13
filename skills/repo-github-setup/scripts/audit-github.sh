@@ -62,6 +62,14 @@ expect "default_workflow_permissions" "$(val .default_workflow_permissions <<<"$
 expect "can_approve_pull_request_reviews" "$(val .can_approve_pull_request_reviews <<<"$wf")" false
 ap=$(api "repos/$FULL/actions/permissions")
 expect "sha_pinning_required" "$(val .sha_pinning_required <<<"$ap")" true
+# A repo may keep a stricter allowlist than the bootstrap's `all`, but it must allow what the
+# template's workflows call, or ci.yml fails at startup with no job logs.
+if [[ "$(val .allowed_actions <<<"$ap")" = selected ]]; then
+  sel=$(api "repos/$FULL/actions/permissions/selected-actions")
+  for want in "ZeleMate/*" "astral-sh/setup-uv@*" "dependabot/fetch-metadata@*"; do
+    if jq -e --arg w "$want" '.patterns_allowed | index($w)' <<<"$sel" >/dev/null; then ok "allowed action $want"; else bad "allowed actions list lacks $want (ci.yml or dependabot-automerge.yml fails at startup)"; fi
+  done
+fi
 
 echo "==> dependabot"
 if gh api "repos/$FULL/vulnerability-alerts" >/dev/null 2>&1; then ok "vulnerability alerts enabled"; else bad "vulnerability alerts disabled"; fi
