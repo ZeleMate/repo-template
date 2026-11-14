@@ -17,14 +17,14 @@ concurrency:
 
 jobs:
   repo-lint:
-    uses: ZeleMate/workflows/.github/workflows/repo-lint.yml@95244ca1c8b62ab0f3d56aefee2c60348445d132  # v1.0.0
+    uses: ZeleMate/workflows/.github/workflows/repo-lint.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
     permissions:
       contents: read
 [% if 'python' in languages %]
 
 [% set py_lo = python_version.split('.')[1] | int %]
   python:
-    uses: ZeleMate/workflows/.github/workflows/python.yml@95244ca1c8b62ab0f3d56aefee2c60348445d132  # v1.0.0
+    uses: ZeleMate/workflows/.github/workflows/python.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
     permissions:
       contents: read
     with:
@@ -36,7 +36,7 @@ jobs:
 [% if 'typescript' in languages %]
 
   typescript:
-    uses: ZeleMate/workflows/.github/workflows/typescript.yml@95244ca1c8b62ab0f3d56aefee2c60348445d132  # v1.0.0
+    uses: ZeleMate/workflows/.github/workflows/typescript.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
     permissions:
       contents: read
     with:
@@ -46,7 +46,7 @@ jobs:
 [% if 'rust' in languages %]
 
   rust:
-    uses: ZeleMate/workflows/.github/workflows/rust.yml@95244ca1c8b62ab0f3d56aefee2c60348445d132  # v1.0.0
+    uses: ZeleMate/workflows/.github/workflows/rust.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
     permissions:
       contents: read
     with:
@@ -54,7 +54,7 @@ jobs:
 [% endif %]
 
   security:
-    uses: ZeleMate/workflows/.github/workflows/security.yml@95244ca1c8b62ab0f3d56aefee2c60348445d132  # v1.0.0
+    uses: ZeleMate/workflows/.github/workflows/security.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
     permissions:
       contents: read
     with:
