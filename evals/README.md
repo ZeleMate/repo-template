@@ -22,9 +22,13 @@ Each run's Bash commands run in Claude Code's OS sandbox, and a case can't chang
 
 ## Known limits per suite
 
-- **repo-new** can't pass end to end. Copier has to write the template's `.claude/agents/code-reviewer.md`, and the sandbox blocks that, so Copier aborts and removes the output. A score around 0.43 means the skill stopped correctly at that point; it doesn't measure generation. Track it, but don't gate on it.
+- **repo-new** used to stop at Copier writing `.claude/agents/code-reviewer.md`, which the sandbox blocks. The reviewer is now a forked skill in `.claude/skills/code-reviewer/`, so the template writes nothing under `.claude/agents/` and the suite can run end to end; the 2026-11-14 score below predates that.
 - **repo-adopt** works: the scaffold makes the fixture's git repo outside the sandbox.
 - **repo-github-setup** works. Its scaffold renders the repo outside the sandbox for the fictional owner `acme-labs`, and the bootstrap's `--dry-run` needs no GitHub login. It scores 1.00 with and without the plugin, because the generated repo's own `docs/SETUP.md` and bootstrap script lead the agent there either way. A case where the repo doesn't spell it out (an existing repo, or the drift audit) would show what the skill adds.
+
+## In CI
+
+The **Skill evals** workflow (`.github/workflows/skill-evals.yml`) runs one suite or all of them on demand (Actions → Skill evals → Run workflow). It needs a `CLAUDE_CODE_OAUTH_TOKEN` secret on this repo (`claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`) and skips with a warning without one. It reports scores without gating and uploads each suite's HTML report as an artifact. A full run is about $12; `max-cost-usd` caps each suite.
 
 ## Last full run (2026-11-14, 3 runs per arm)
 

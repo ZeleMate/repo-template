@@ -1,0 +1,5 @@
+rules:
+  adhoc-packages:
+    ignore:
+      # Installs the exact Claude Code version under test; the CLI has no lockfile to install from.
+      - skill-evals.yml

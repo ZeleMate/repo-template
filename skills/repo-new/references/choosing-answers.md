@@ -16,7 +16,8 @@ The questions themselves (names, types, choices, defaults, validators) live in `
 | Key | Notes |
 |---|---|
 | `project_name` | Human name. Required. |
-| `project_slug` | Repo and package name; lowercase letters, digits, dashes. Defaults from the name. It is also the GitHub repo name the bootstrap creates. |
+| `project_slug` | Package name; lowercase letters, digits, dashes. Defaults from the name. |
+| `repo_name` | The GitHub repo name the bootstrap creates and the scripts and docs link to, exactly as on GitHub (`LegalQA_v2`). Defaults to the project name when that is a valid repo name, else to the slug. |
 | `package_name` | Python import name (Python only). Defaults to the slug with underscores. |
 | `description` | One line; goes in README, AGENTS.md, package metadata and the GitHub repo description. |
 | `author_name`, `author_email` | Package metadata. For private repos the email is also the vulnerability-report address in SECURITY.md, so it should be one the maintainer reads. Take them from `git config user.name` / `user.email` and confirm. |
@@ -56,6 +57,7 @@ Only asked for the chosen languages. Defaults are sensible; change them only on 
 | Key | Default | Notes |
 |---|---|---|
 | `python_version` | 3.13 | Minimum supported |
+| `python_max_version` | empty | Newest supported minor; caps `requires-python` and the CI matrix. Set it when a dependency doesn't support the newest Python yet |
 | `python_type_checker` | pyright | or mypy; both strict |
 | `node_version` | 26 | 24 or 26 (LTS majors) |
 | `ts_linter` | eslint | or oxlint (faster, fewer rules) |

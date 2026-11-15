@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Read-only audit: compare a GitHub repo's live settings with what the repo template expects.
 #   audit-github.sh [repo-dir] [owner/repo]
-# Expectations come from repo-dir/.copier-answers.yml; owner/repo defaults to github_owner/project_slug from it.
+# Expectations come from repo-dir/.copier-answers.yml; owner/repo defaults to github_owner/repo_name from it (project_slug for answers older than v1.0).
 # Changes nothing. Exits 1 if any setting has drifted, 0 otherwise.
 # Needs: gh (authenticated), jq, uv (to read the YAML answers file).
 set -uo pipefail
@@ -18,7 +18,7 @@ a = yaml.safe_load(open(sys.argv[1]))
 vis = a.get("visibility", "private")
 gov = vis == "public" or a.get("github_plan") == "pro"
 out = {
-    "OWNER": a.get("github_owner", ""), "SLUG": a.get("project_slug", ""), "VIS": vis,
+    "OWNER": a.get("github_owner", ""), "SLUG": a.get("repo_name") or a.get("project_slug", ""), "VIS": vis,
     "GOV": "yes" if gov else "no", "PUBLISHES": "yes" if a.get("publishes") else "no",
     "AGENTIC": "yes" if a.get("agentic") else "no",
     "CLAUDE": "yes" if "claude" in (a.get("ai_reviewers") or []) else "no",

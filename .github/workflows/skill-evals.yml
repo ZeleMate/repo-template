@@ -1,0 +1,100 @@
+name: Skill evals
+
+# Runs the plugin's skill eval suites (evals/README.md) on demand. Manual only: a full run of all
+# suites at 3 runs per arm costs about $12 of Claude usage, billed to the CLAUDE_CODE_OAUTH_TOKEN
+# secret (`claude setup-token`). Without the secret the job skips with a warning.
+# Scores are reported, not gated: repo-new is sandbox-limited (see evals/README.md).
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Suite to run
+        type: choice
+        options: [all, repo-adopt, repo-github-setup, repo-new]
+        default: all
+      runs:
+        description: Runs per case and arm
+        type: number
+        default: 3
+      max-cost-usd:
+        description: Hard cost ceiling per suite
+        type: number
+        default: 8
+
+permissions: {}
+
+concurrency:
+  group: skill-evals
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      # The secret itself reaches only the "Run suites" step; this step sees whether it is set.
+      - name: Require CLAUDE_CODE_OAUTH_TOKEN
+        id: cred
+        env:
+          HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != true ]; then
+            echo "::warning::CLAUDE_CODE_OAUTH_TOKEN is not set; skipping. Run 'claude setup-token' and 'gh secret set CLAUDE_CODE_OAUTH_TOKEN'."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.cred.outputs.ok == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - if: steps.cred.outputs.ok == 'true'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+      - if: steps.cred.outputs.ok == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+      - name: Install Claude Code and its Linux sandbox
+        if: steps.cred.outputs.ok == 'true'
+        env:
+          CLAUDE_CODE_VERSION: "2.1.302"  # the version evals/README.md's sandbox notes were taken on
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq bubblewrap socat
+          # The Linux x64 package is the bare CLI binary. Installing it directly, with scripts off,
+          # skips the wrapper package's postinstall, so no package script runs on the runner.
+          npm install -g --ignore-scripts "@anthropic-ai/claude-code-linux-x64@${CLAUDE_CODE_VERSION}"
+          echo "$(npm root -g)/@anthropic-ai/claude-code-linux-x64" >> "$GITHUB_PATH"
+          "$(npm root -g)/@anthropic-ai/claude-code-linux-x64/claude" --version
+      - name: Run suites
+        if: steps.cred.outputs.ok == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}  # repo-github-setup's scaffold reads it; read-only
+          SUITE: ${{ inputs.suite }}
+          RUNS: ${{ inputs.runs }}
+          MAX_COST: ${{ inputs['max-cost-usd'] }}
+        run: |
+          if [ "$SUITE" = all ]; then suites="repo-adopt repo-github-setup repo-new"; else suites="$SUITE"; fi
+          mkdir -p eval-out
+          rc=0
+          for s in $suites; do
+            echo "::group::$s"
+            ./scripts/run-evals.sh "$s" --runs "$RUNS" --max-cost-usd "$MAX_COST" --threshold 0 \
+              --no-publish --output-dir "eval-out/$s" --report "eval-out/$s/report.html" || rc=$?
+            echo "::endgroup::"
+          done
+          {
+            echo "## Skill evals"
+            echo "| Suite | Report |"
+            echo "|---|---|"
+            for s in $suites; do echo "| $s | eval-out/$s/report.html (artifact) |"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+      - if: always() && steps.cred.outputs.ok == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: skill-evals
+          path: eval-out/
+          retention-days: 30

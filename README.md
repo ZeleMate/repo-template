@@ -79,7 +79,7 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 | Releases | release-please from Conventional Commit PR titles; SBOM (SPDX) attached | changesets for pnpm monorepos |
 | Publishing | OIDC trusted publishing: PyPI (PEP 740 attestations), npm (provenance on public), crates.io | — |
 | AI review | Claude Code Action (runs on your Claude subscription; posts with the job's own token, so no Claude GitHub App) and/or CodeRabbit (free on public repos) | GitHub Copilot code review (enable via ruleset; billed per review); Qodo PR-Agent (MIT, your own API key) |
-| Spec conformance | **Custom:** `spec-review` skill + read-only `code-reviewer` subagent + `REVIEW.md` | Nothing on the market does this by default |
+| Spec conformance | **Custom:** `spec-review` skill + read-only `code-reviewer` skill (a forked subagent) + `REVIEW.md` | Nothing on the market does this by default |
 | Agent config | `AGENTS.md` (canonical) + `CLAUDE.md` importing it; `.claude/settings.json` deny rules + formatter hook | — |
 | Agentic app safety | Threat model keyed to OWASP LLM Top 10 2026 + Agentic Top 10; agent policy; Inspect AI evals (mock on PRs, real model nightly) | promptfoo |
 | Python | uv + `uv.lock` (7-day `exclude-newer`), Ruff, pyright/mypy strict, pytest + Hypothesis, coverage | — |
