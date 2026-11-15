@@ -1,6 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "include-component-in-tag": [[ 'true' if multi_lang else 'false' ]],
+  "draft": true,
+  "force-tag-creation": true,
   "packages": {
 [% for l in languages %]
     "[[ {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir}[l] ]]": {

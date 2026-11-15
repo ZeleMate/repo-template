@@ -145,6 +145,7 @@ check "gitignore re-includes the CI tools' .python-version last" sh -c "cd \"$OU
 check "nothing under .claude/agents (the eval sandbox blocks it)" sh -c "[ ! -e \"$OUT/cased/.claude/agents\" ] && [ ! -e \"$OUT/py/.claude/agents\" ]"
 check "release.yml requires RELEASE_PLEASE_TOKEN" sh -c "grep -q 'Require RELEASE_PLEASE_TOKEN' \"$OUT/cased/.github/workflows/release.yml\" && ! grep -q 'RELEASE_PLEASE_TOKEN || github.token' \"$OUT/cased/.github/workflows/release.yml\""
 check "release-please bumps uv.lock's own version" sh -c "grep -q \"@.name.value=='legalqa-v2'\" \"$OUT/cased/release-please-config.json\" && grep -q \"@.name.value=='demo-app'\" \"$OUT/multi/release-please-config.json\" && ! grep -q extra-files \"$OUT/ts/release-please-config.json\""
+check "releases are drafted, then published after the SBOM is attached" sh -c "grep -q '\"draft\": true' \"$OUT/py/release-please-config.json\" && grep -q '\"force-tag-creation\": true' \"$OUT/py/release-please-config.json\" && grep -q 'gh release edit \"\$tag\" --draft=false' \"$OUT/py/.github/workflows/release.yml\""
 check "uncapped Python still tests up to 3.14" sh -c "grep -q '\"3.14\"' \"$OUT/py/.github/workflows/ci.yml\""
 
 echo
