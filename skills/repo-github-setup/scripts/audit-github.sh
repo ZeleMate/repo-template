@@ -112,8 +112,16 @@ fi
 echo "==> secrets (names only)"
 names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null) || { skip "cannot list secrets (needs admin)"; names=""; }
 want=()
-# The template's release workflow exists only where it manages a language.
-[[ "$BASELINE" = no ]] && want+=(RELEASE_PLEASE_TOKEN)
+# The template's release workflow exists only where it manages a language. A repo that doesn't
+# release disables it (`gh workflow disable release.yml`), and then needs no token.
+if [[ "$BASELINE" = no ]]; then
+  rel_state=$(api "repos/$FULL/actions/workflows/release.yml" | val .state)
+  if [[ "$rel_state" = disabled_manually ]]; then
+    ok "release.yml disabled, so RELEASE_PLEASE_TOKEN is not needed (re-enable with: gh workflow enable release.yml)"
+  else
+    want+=(RELEASE_PLEASE_TOKEN)
+  fi
+fi
 [[ "$CLAUDE" = yes ]] && want+=(CLAUDE_CODE_OAUTH_TOKEN)
 [[ "$AGENTIC" = yes ]] && want+=(EVAL_ANTHROPIC_API_KEY)
 # The weekly template update check can only read a private template with TEMPLATE_READ_TOKEN.
