@@ -33,13 +33,14 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    env:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     steps:
+      # The secret itself reaches only the "Run suites" step; this step sees whether it is set.
       - name: Require CLAUDE_CODE_OAUTH_TOKEN
         id: cred
+        env:
+          HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
         run: |
-          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+          if [ "$HAS_TOKEN" != true ]; then
             echo "::warning::CLAUDE_CODE_OAUTH_TOKEN is not set; skipping. Run 'claude setup-token' and 'gh secret set CLAUDE_CODE_OAUTH_TOKEN'."
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
@@ -66,6 +67,7 @@ jobs:
       - name: Run suites
         if: steps.cred.outputs.ok == 'true'
         env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GH_TOKEN: ${{ github.token }}  # repo-github-setup's scaffold reads it; read-only
           SUITE: ${{ inputs.suite }}
           RUNS: ${{ inputs.runs }}
