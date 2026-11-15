@@ -144,6 +144,7 @@ check "python_max_version caps requires-python and the CI matrix" sh -c "cd \"$O
 check "gitignore re-includes the CI tools' .python-version last" sh -c "cd \"$OUT/cased\" && [ \"\$(tail -n 1 .gitignore)\" = '!.github/tools/.python-version' ] && printf '.python-version\n' | cat - .gitignore > .gi && mv .gi .gitignore && ! git check-ignore -q .github/tools/.python-version"
 check "nothing under .claude/agents (the eval sandbox blocks it)" sh -c "[ ! -e \"$OUT/cased/.claude/agents\" ] && [ ! -e \"$OUT/py/.claude/agents\" ]"
 check "release.yml requires RELEASE_PLEASE_TOKEN" sh -c "grep -q 'Require RELEASE_PLEASE_TOKEN' \"$OUT/cased/.github/workflows/release.yml\" && ! grep -q 'RELEASE_PLEASE_TOKEN || github.token' \"$OUT/cased/.github/workflows/release.yml\""
+check "release-please bumps uv.lock's own version" sh -c "grep -q \"@.name.value=='legalqa-v2'\" \"$OUT/cased/release-please-config.json\" && grep -q \"@.name.value=='demo-app'\" \"$OUT/multi/release-please-config.json\" && ! grep -q extra-files \"$OUT/ts/release-please-config.json\""
 check "uncapped Python still tests up to 3.14" sh -c "grep -q '\"3.14\"' \"$OUT/py/.github/workflows/ci.yml\""
 
 echo
