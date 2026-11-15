@@ -136,5 +136,15 @@ gen py-extra -d languages='[python]' -d agentic=false -d extra_ecosystems='[uv, 
 check "no duplicate dependabot entry for a managed ecosystem" sh -c "[ \"\$(grep -c 'directory: /\$' \"$OUT/py-extra/.github/dependabot.yml\")\" = 3 ]"
 check "ci-local.yml is never overwritten" sh -c "cd \"$OUT/py-extra\" && echo '# mine' >> .github/workflows/ci-local.yml && git add -A && git -c user.name=t -c user.email=t@example.com commit -qm init && uvx copier recopy --trust --defaults --quiet --vcs-ref HEAD --overwrite . >/dev/null 2>&1; grep -q '# mine' .github/workflows/ci-local.yml"
 
+echo "==> repo name with capitals and underscores, capped Python range"
+gen cased -d project_name=LegalQA_v2 -d languages='[python]' -d agentic=false -d visibility=public \
+  -d python_version=3.11 -d python_max_version=3.12
+check "repo_name keeps the GitHub name; slug stays lowercase" sh -c "cd \"$OUT/cased\" && grep -qx 'REPO=\"LegalQA_v2\"' scripts/bootstrap-github.sh && grep -q 'example/LegalQA_v2/security' .github/ISSUE_TEMPLATE/config.yml && grep -qx 'name = \"legalqa-v2\"' pyproject.toml"
+check "python_max_version caps requires-python and the CI matrix" sh -c "cd \"$OUT/cased\" && grep -qx 'requires-python = \">=3.11,<3.13\"' pyproject.toml && grep -q \"python-versions: '\\[\\\"3.11\\\", \\\"3.12\\\"\\]'\" .github/workflows/ci.yml"
+check "gitignore re-includes the CI tools' .python-version last" sh -c "cd \"$OUT/cased\" && [ \"\$(tail -n 1 .gitignore)\" = '!.github/tools/.python-version' ] && printf '.python-version\n' | cat - .gitignore > .gi && mv .gi .gitignore && ! git check-ignore -q .github/tools/.python-version"
+check "nothing under .claude/agents (the eval sandbox blocks it)" sh -c "[ ! -e \"$OUT/cased/.claude/agents\" ] && [ ! -e \"$OUT/py/.claude/agents\" ]"
+check "release.yml requires RELEASE_PLEASE_TOKEN" sh -c "grep -q 'Require RELEASE_PLEASE_TOKEN' \"$OUT/cased/.github/workflows/release.yml\" && ! grep -q 'RELEASE_PLEASE_TOKEN || github.token' \"$OUT/cased/.github/workflows/release.yml\""
+check "uncapped Python still tests up to 3.14" sh -c "grep -q '\"3.14\"' \"$OUT/py/.github/workflows/ci.yml\""
+
 echo
 [[ ! -e "$OUT/.failed" ]] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }

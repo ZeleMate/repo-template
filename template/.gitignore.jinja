@@ -50,3 +50,10 @@ target/
 # Eval logs
 logs/
 [% endif %]
+
+# Keep last: template files that broad rules above (`.python-version`, `/*.json`) must not hide.
+[% if languages %]
+!/release-please-config.json
+!/.release-please-manifest.json
+[% endif %]
+!.github/tools/.python-version

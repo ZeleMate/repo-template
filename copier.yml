@@ -27,6 +27,16 @@ project_slug:
   validator: >-
     [% if project_slug != project_slug.lower() or not project_slug.replace('-', '').isalnum() %]Use lowercase letters, digits and dashes[% endif %]
 
+repo_name:
+  type: str
+  help: >-
+    GitHub repository name, exactly as on GitHub (capitals, dots and underscores allowed).
+    Defaults to the project name when that is already a valid repo name, else to the slug
+  default: >-
+    [% set n = project_name.strip() %][% if n and n.isascii() and n.replace('-', '').replace('_', '').replace('.', '').isalnum() %][[ n ]][% else %][[ project_slug ]][% endif %]
+  validator: >-
+    [% if not (repo_name.isascii() and repo_name.replace('-', '').replace('_', '').replace('.', '').isalnum()) %]Use letters, digits, dots, dashes and underscores[% endif %]
+
 package_name:
   type: str
   help: Python import name
@@ -140,6 +150,18 @@ python_version:
   help: Minimum Python version
   default: "3.13"
   when: "[[ 'python' in languages ]]"
+  validator: >-
+    [% set p = python_version.split('.') %][% if p | length != 2 or p[0] != '3' or not p[1].isdigit() %]Use 3.N, e.g. 3.13[% endif %]
+
+python_max_version:
+  type: str
+  help: >-
+    Newest supported Python minor (e.g. 3.13), for dependencies that don't support the latest yet.
+    Empty = no cap: CI tests up to the newest release the template knows
+  default: ""
+  when: "[[ 'python' in languages ]]"
+  validator: >-
+    [% if python_max_version %][% set p = python_max_version.split('.') %][% if p | length != 2 or p[0] != '3' or not p[1].isdigit() %]Use 3.N, e.g. 3.13, or leave empty[% elif p[1] | int < python_version.split('.')[1] | int %]Must not be older than the minimum ([[ python_version ]])[% endif %][% endif %]
 
 python_type_checker:
   type: str

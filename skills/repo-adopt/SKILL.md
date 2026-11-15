@@ -37,7 +37,7 @@ Don't rewrite history. In a public repo the value is already exposed, so only ro
 
 ## 2. Agree the answers and the scope
 
-Draft the answers from the survey (visibility, owner and slug come from GitHub; author from git config). Then talk through, with the user, every place where the template's choice differs from what the repo does today. For each, the options are adopt the template's tool (migrate), or keep theirs and adapt the template file. Recommend, don't decide:
+Draft the answers from the survey (visibility, owner and slug come from GitHub; author from git config). Set `repo_name` to the repo's exact GitHub name when it has capitals, dots or underscores the slug can't hold (`LegalQA_v2`), and `python_max_version` when the repo's `requires-python` has an upper bound or a dependency doesn't support the newest Python yet. Then talk through, with the user, every place where the template's choice differs from what the repo does today. For each, the options are adopt the template's tool (migrate), or keep theirs and adapt the template file. Recommend, don't decide:
 
 - A tool swap that's mostly config (mypy → pyright, adding Ruff, npm → pnpm) is usually worth it.
 - A swap that touches lots of code or habits (Poetry → uv with many extras, Jest → Vitest with heavy mocks) can be its own follow-up PR; keep their tool and wire it into the template's CI job for now.
@@ -61,7 +61,7 @@ Walk the rendered tree (`find <scratch>/rendered -type f -not -path '*/.venv/*' 
 | File kind | Default action |
 |---|---|
 | Doesn't exist in the repo (most of `.github/`, `docs/`, `.claude/`, `AGENTS.md`, `REVIEW.md`, `SECURITY.md`, `scripts/bootstrap-github.sh`, `.editorconfig`) | Copy it in. |
-| Exists and is pure config (`.pre-commit-config.yaml`, `.gitignore`, `dependabot.yml`, linter configs) | Merge: template content as the base, plus the repo's extra entries. |
+| Exists and is pure config (`.pre-commit-config.yaml`, `.gitignore`, `dependabot.yml`, linter configs) | Merge: template content as the base, plus the repo's extra entries. In `.gitignore`, keep the template's closing `!` block (release-please files, `.github/tools/.python-version`) last, below the repo's entries, or a broad rule like `.python-version` or `/*.json` hides them. Before committing, run `git status --ignored` and check that no rendered file is ignored. |
 | Exists and is the project's own (`README.md`, `pyproject.toml`/`package.json`/`Cargo.toml`, source, tests, `LICENSE`, `CHANGELOG.md`) | Keep theirs; port only the template's tool settings into it (e.g. the `[tool.ruff]`, `[tool.pyright]`, coverage and `exclude-newer` sections; the package.json scripts CI calls: `format:check`, `lint`, `typecheck`, `test:coverage`, `build`). |
 | The template's placeholder code (`src/<pkg>/__init__.py`, `src/index.ts`, `src/lib.rs`, `tests/test_smoke.py`, `test/index.test.ts`) | Skip. |
 | `.github/workflows/ci-local.yml` | The repo owns this file; the template never updates it. Move the repo's existing CI jobs into it as jobs of a reusable workflow (`on: workflow_call`), replacing the no-op job. Keep every action pinned to a full SHA, give each job its own `permissions`, and make sure no job needs a secret (Dependabot PRs get none). Delete the old workflow those jobs came from, so they don't run twice. |
