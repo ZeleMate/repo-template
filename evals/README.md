@@ -28,7 +28,7 @@ Each run's Bash commands run in Claude Code's OS sandbox, and a case can't chang
 
 ## In CI
 
-The **Skill evals** workflow (`.github/workflows/skill-evals.yml`) runs one suite or all of them on demand (Actions → Skill evals → Run workflow). It needs a `CLAUDE_CODE_OAUTH_TOKEN` secret on this repo (`claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`) and skips with a warning without one. It reports scores without gating and uploads each suite's HTML report as an artifact. A full run is about $12; `max-cost-usd` caps each suite.
+The **Skill evals** workflow (`.github/workflows/skill-evals.yml`) runs one suite or all of them on demand (Actions → Skill evals → Run workflow). It needs a `CLAUDE_CODE_OAUTH_TOKEN` secret on this repo (`claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`) and skips with a warning without one. It reports scores without gating and uploads each suite's HTML report as an artifact. On GitHub's Ubuntu 24.04 runners the job first lifts two AppArmor user-namespace restrictions (the `kernel.apparmor_restrict_unprivileged_userns` sysctl and the `bwrap-userns-restrict` profile), without which every Bash call in the sandbox fails with `nested userns is capability-restricted`; a preflight stops the job before any paid run if that still fails. Its first full run (2026-11-15) hit exactly that, so its scores measured nothing. A full run is about $12; `max-cost-usd` caps each suite.
 
 ## Last full run (2026-11-14, 3 runs per arm)
 
