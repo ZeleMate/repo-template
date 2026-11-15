@@ -62,11 +62,18 @@ jobs:
           CLAUDE_CODE_VERSION: "2.1.302"  # the version evals/README.md's sandbox notes were taken on
         run: |
           sudo apt-get update -q && sudo apt-get install -yq bubblewrap socat
+          # Ubuntu 24.04 strips capabilities from user namespaces that unprivileged processes
+          # create, so the sandbox's seccomp helper can't make its nested namespace and every
+          # Bash call fails before it starts. Lift that on this throwaway runner only.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           # The Linux x64 package is the bare CLI binary. Installing it directly, with scripts off,
           # skips the wrapper package's postinstall, so no package script runs on the runner.
           npm install -g --ignore-scripts "@anthropic-ai/claude-code-linux-x64@${CLAUDE_CODE_VERSION}"
           echo "$(npm root -g)/@anthropic-ai/claude-code-linux-x64" >> "$GITHUB_PATH"
           "$(npm root -g)/@anthropic-ai/claude-code-linux-x64/claude" --version
+          # Fail here, not 40 minutes in, if the sandbox still can't run a command.
+          bwrap --unshare-user --ro-bind / / bash -c 'unshare --user true' \
+            || { echo "::error::user namespaces are still restricted; Bash in the eval sandbox would fail"; exit 1; }
       - name: Run suites
         if: steps.cred.outputs.ok == 'true'
         env:
