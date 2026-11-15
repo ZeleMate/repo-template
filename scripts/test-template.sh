@@ -53,7 +53,7 @@ lint_workflows() {
     osv_args=(scan source --recursive); [[ -f "$d/evals/run.py.lock" ]] && osv_args+=(--lockfile "uv.lock:$d/evals/run.py.lock")
     check "osv-scanner" osv-scanner "${osv_args[@]}" "$d"
   fi
-  check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -e '\[\[ ' -e '\[% ' \"$d\" | grep -v pnpm-lock"
+  check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -E -e '\[\[ [A-Za-z_]' -e '\[% ' \"$d\" | grep -v pnpm-lock"
 }
 
 check_evals() { # mock evals, as the evals workflow runs them on PRs; catches pins inside the uv cooldown
