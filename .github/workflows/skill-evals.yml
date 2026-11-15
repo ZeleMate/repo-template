@@ -62,11 +62,30 @@ jobs:
           CLAUDE_CODE_VERSION: "2.1.302"  # the version evals/README.md's sandbox notes were taken on
         run: |
           sudo apt-get update -q && sudo apt-get install -yq bubblewrap socat
+          # Ubuntu 24.04 strips capabilities from user namespaces: from unconfined processes
+          # (the sysctl) and from everything bwrap starts (AppArmor's bwrap-userns-restrict
+          # profile). Either way the sandbox's seccomp helper can't set up its nested namespace
+          # and every Bash call fails before it starts. Lift both on this throwaway runner only.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          echo "AppArmor profiles mentioning bwrap or userns:"
+          sudo aa-status 2>/dev/null | grep -iE 'bwrap|userns' || echo "  (none loaded)"
+          for p in /etc/apparmor.d/bwrap-userns-restrict /etc/apparmor.d/unprivileged_userns; do
+            if [ -f "$p" ]; then sudo apparmor_parser -R "$p" 2>/dev/null && echo "unloaded $p" || echo "not loaded: $p"; fi
+          done
           # The Linux x64 package is the bare CLI binary. Installing it directly, with scripts off,
           # skips the wrapper package's postinstall, so no package script runs on the runner.
           npm install -g --ignore-scripts "@anthropic-ai/claude-code-linux-x64@${CLAUDE_CODE_VERSION}"
           echo "$(npm root -g)/@anthropic-ai/claude-code-linux-x64" >> "$GITHUB_PATH"
           "$(npm root -g)/@anthropic-ai/claude-code-linux-x64/claude" --version
+          # Fail here, before any paid run, if the sandbox still can't run a command. This repeats
+          # what the seccomp helper does: a nested user namespace that maps root, which writes
+          # /proc/self/setgroups (the step that failed with "nested userns is capability-restricted").
+          if bwrap --unshare-user --dev-bind / / --proc /proc unshare --user --map-root-user true; then
+            echo "sandbox preflight ok: nested user namespaces work"
+          else
+            echo "::error::nested user namespaces are still restricted; every Bash call in the eval sandbox would fail"
+            exit 1
+          fi
       - name: Run suites
         if: steps.cred.outputs.ok == 'true'
         env:
