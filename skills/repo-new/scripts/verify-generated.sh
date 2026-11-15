@@ -52,7 +52,8 @@ if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
 else
   echo "    skip pre-commit (not a git repo yet; the bootstrap script runs git init)"
 fi
-check "no unrendered template tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=target --exclude-dir=.git -e '\[\[ ' -e '\[% ' \"$REPO\" | grep -v pnpm-lock"
+# A Copier variable starts with a name (`[[ project_name ]]`); bash tests (`[[ -n "$x" ]]`) do not.
+check "no unrendered template tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=target --exclude-dir=.git -E -e '\[\[ [A-Za-z_]' -e '\[% ' \"$REPO\" | grep -v pnpm-lock"
 
 if [[ -f "$REPO/evals/run.py" ]]; then
   # Same command the evals workflow runs on PRs; also catches pins newer than the uv cooldown.
