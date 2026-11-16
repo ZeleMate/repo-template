@@ -22,18 +22,20 @@ Each run's Bash commands run in Claude Code's OS sandbox, and a case can't chang
 
 ## Known limits per suite
 
-- **repo-new** used to stop at Copier writing `.claude/agents/code-reviewer.md`, which the sandbox blocks. The reviewer is now a forked skill in `.claude/skills/code-reviewer/`, so the template writes nothing under `.claude/agents/` and the suite can run end to end; the 2026-11-14 score below predates that.
+- **repo-new** used to stop at Copier writing `.claude/agents/code-reviewer.md`, which the sandbox blocks. The reviewer is now a forked skill in `.claude/skills/code-reviewer/`, so the template writes nothing under `.claude/agents/`, and the suite passes end to end (1.00 in its first CI run).
 - **repo-adopt** works: the scaffold makes the fixture's git repo outside the sandbox.
 - **repo-github-setup** works. Its scaffold renders the repo outside the sandbox for the fictional owner `acme-labs`, and the bootstrap's `--dry-run` needs no GitHub login. It scores 1.00 with and without the plugin, because the generated repo's own `docs/SETUP.md` and bootstrap script lead the agent there either way. A case where the repo doesn't spell it out (an existing repo, or the drift audit) would show what the skill adds.
 
 ## In CI
 
-The **Skill evals** workflow (`.github/workflows/skill-evals.yml`) runs one suite or all of them on demand (Actions → Skill evals → Run workflow). It needs a `CLAUDE_CODE_OAUTH_TOKEN` secret on this repo (`claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`) and skips with a warning without one. It reports scores without gating and uploads each suite's HTML report as an artifact. On GitHub's Ubuntu 24.04 runners the job first lifts two AppArmor user-namespace restrictions (the `kernel.apparmor_restrict_unprivileged_userns` sysctl and the `bwrap-userns-restrict` profile), without which every Bash call in the sandbox fails with `nested userns is capability-restricted`; a preflight stops the job before any paid run if that still fails. Its first full run (2026-11-15) hit exactly that, so its scores measured nothing. A full run is about $12; `max-cost-usd` caps each suite.
+The **Skill evals** workflow (`.github/workflows/skill-evals.yml`) runs one suite or all of them on demand (Actions → Skill evals → Run workflow). It needs a `CLAUDE_CODE_OAUTH_TOKEN` secret on this repo (`claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`) and skips with a warning without one. That token draws on the same weekly Claude allowance as your own sessions: a full run can use it up, and runs started after that fail at once with "You've hit your weekly limit". It reports scores without gating and uploads each suite's HTML report as an artifact. On GitHub's Ubuntu 24.04 runners the job first lifts two AppArmor user-namespace restrictions (the `kernel.apparmor_restrict_unprivileged_userns` sysctl and the `bwrap-userns-restrict` profile), without which every Bash call in the sandbox fails with `nested userns is capability-restricted`; a preflight stops the job before any paid run if that still fails. Its first full run (2026-11-15) hit exactly that, so its scores measured nothing. A full run is about $12; `max-cost-usd` caps each suite.
 
-## Last full run (2026-11-14, 3 runs per arm)
+## Last full run (CI, 2026-11-15, 3 runs per arm, 28 minutes)
 
 | Suite | With plugin | Without | Cost |
 |---|---|---|---|
-| repo-adopt | 0.92 | 0.42 | $5.04 |
-| repo-github-setup | 1.00 | 1.00 | $1.98 |
-| repo-new | 0.43 (sandbox-limited, see above) | 0.48 | $5.22 |
+| repo-adopt | 0.88 | 0.33 | $1.12 |
+| repo-github-setup | 0.94 | 1.00 | $0.85 |
+| repo-new | 1.00 (1 of 3 runs; the rest hit the weekly limit) | not run | $0.26 |
+
+repo-adopt's misses with the plugin: action pinning (2 of 3 runs) and one README judgement. repo-github-setup missed the dry-run-first step once. The previous local run (2026-11-14) scored repo-adopt 0.92 / 0.42 and repo-github-setup 1.00 / 1.00; repo-new was sandbox-limited then.
