@@ -1,0 +1,11 @@
+# OSV-Scanner's accept list for pnpm-lock.yaml (the central security workflow scans it).
+# Every entry has a reason and an ignoreUntil date, after which the scan fails again and the
+# entry gets re-checked. Remove an entry once a fixed version is locked.
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2026-12-17T00:00:00Z
+reason = """
+picomatch <= 4.0.7 ReDoS via crafted extglobs; no fixed release yet. It comes in through \
+tinyglobby (typescript-eslint, vite/vitest), dev tooling that only matches the project's own \
+glob patterns, so an attacker would need to edit the repo's config first."""
