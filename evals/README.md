@@ -22,7 +22,7 @@ Each run's Bash commands run in Claude Code's OS sandbox, and a case can't chang
 
 ## Known limits per suite
 
-- **repo-new** used to stop at Copier writing `.claude/agents/code-reviewer.md`, which the sandbox blocks. The reviewer is now a forked skill in `.claude/skills/code-reviewer/`, so the template writes nothing under `.claude/agents/`, and the suite passes end to end (1.00 in its first CI run).
+- **repo-new** used to stop at Copier writing `.claude/agents/code-reviewer.md`, which the sandbox blocks. The reviewer is now a forked skill in `.claude/skills/code-reviewer/`, so the template writes nothing under `.claude/agents/`, and the suite passes end to end (0.86 with the plugin vs 0.48 without in its first full CI run).
 - **repo-adopt** works: the scaffold makes the fixture's git repo outside the sandbox.
 - **repo-github-setup** works. Its scaffold renders the repo outside the sandbox for the fictional owner `acme-labs`, and the bootstrap's `--dry-run` needs no GitHub login. It scores 1.00 with and without the plugin, because the generated repo's own `docs/SETUP.md` and bootstrap script lead the agent there either way. A case where the repo doesn't spell it out (an existing repo, or the drift audit) would show what the skill adds.
 
@@ -36,6 +36,6 @@ The **Skill evals** workflow (`.github/workflows/skill-evals.yml`) runs one suit
 |---|---|---|---|
 | repo-adopt | 0.88 | 0.33 | $1.12 |
 | repo-github-setup | 0.94 | 1.00 | $0.85 |
-| repo-new | 1.00 (1 of 3 runs; the rest hit the weekly limit) | not run | $0.26 |
+| repo-new (rerun 2026-11-17, 22 minutes) | 0.86 | 0.48 | $1.42 |
 
-repo-adopt's misses with the plugin: action pinning (2 of 3 runs) and one README judgement. repo-github-setup missed the dry-run-first step once. The previous local run (2026-11-14) scored repo-adopt 0.92 / 0.42 and repo-github-setup 1.00 / 1.00; repo-new was sandbox-limited then.
+repo-adopt's misses with the plugin: action pinning (2 of 3 runs) and one README judgement. repo-github-setup missed the dry-run-first step once. repo-new's first attempt hit the weekly limit after one run (1.00); the rerun's misses with the plugin were the mock evals not shown passing (2 of 3 runs) and the recorded answers once. Without the plugin it misses the answers file and the agentic files every time. The previous local run (2026-11-14) scored repo-adopt 0.92 / 0.42 and repo-github-setup 1.00 / 1.00; repo-new was sandbox-limited then.
