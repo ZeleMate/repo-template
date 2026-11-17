@@ -14,9 +14,12 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 [[ -d "$root/evals/$skill" ]] || { echo "no suite at evals/$skill" >&2; exit 1; }
 
 grants=(Bash Write Edit)
+# GitHub, PyPI and npm for Copier and uv; the tiktoken file inspect_ai fetches for a generated
+# repo's mock evals; Semgrep's rule registry for verify-generated.sh.
 for d in github.com api.github.com codeload.github.com objects.githubusercontent.com \
          release-assets.githubusercontent.com raw.githubusercontent.com \
-         pypi.org files.pythonhosted.org registry.npmjs.org; do
+         pypi.org files.pythonhosted.org registry.npmjs.org \
+         openaipublic.blob.core.windows.net semgrep.dev; do
   grants+=("WebFetch(domain:$d)")
 done
 

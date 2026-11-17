@@ -96,7 +96,7 @@ uses: ZeleMate/workflows/.github/workflows/python.yml@<40-char sha> # v1.4.0
 
 - The central repo cuts semver tags, ideally as immutable releases.
 - Dependabot bumps the SHA and the comment together. zizmor's `unpinned-uses` (default `hash-pin`) flags `@v1` or `@main` as High, so a tag or branch ref is not acceptable. GitHub's "require full-length SHA" policy exempts reusable-workflow refs, but every action *inside* a central workflow must still be SHA-pinned.
-- Workflow lockfiles (`actions.lock`) don't cover `jobs.<id>.uses`, so the SHA pin is the only lock.
+- Workflow lockfiles (`actions.lock`, generally available since 28 October 2026) also record reusable-workflow references. The template doesn't use them yet, so for now the SHA pin is the only lock.
 
 **Self-checkout.** A central workflow that needs its own files (tool lock, config) checks itself out at the SHA it was called at:
 
