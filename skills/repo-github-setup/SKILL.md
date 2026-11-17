@@ -33,7 +33,7 @@ Creating a repo and pushing code is visible to others and on a public repo it's 
 ./scripts/bootstrap-github.sh
 ```
 
-The script is idempotent and reports failures instead of stopping, because some endpoints depend on plan or visibility. Read its output and explain each `failed:` line. Known ones: `sha_pinning_required` may not be supported on personal-account repos, and private + Free repos skip the ruleset and environment by design.
+The script is idempotent and reports failures instead of stopping, because some endpoints depend on plan or visibility. Read its output and explain each `failed:` line. Known ones: private + Free repos skip the ruleset and environment by design.
 
 ### 4. Manual steps
 
