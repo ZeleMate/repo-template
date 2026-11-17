@@ -118,18 +118,46 @@ JSON
   fi
 fi
 
-[% if languages %]
 # ------------------------------------------------------------------ secrets
+# The Actions secrets in this repo's secret requirements (.github/secret-requirements.json).
+[% from 'includes/secrets.jinja' import secrets, condition_note with context %]
+# Prints true, false or unknown: is the template repo (_src_path in the answers file) private?
+template_private() {
+  local tpl p
+  tpl=$(sed -n 's/^_src_path: *//p' [[ _copier_conf.answers_file ]] 2>/dev/null | head -n 1 \
+    | sed -E -e "s/^['\"]//" -e "s/['\"]\$//" -e 's#^gh:##' -e 's#^(https://|git@)github\.com[:/]##' -e 's#\.git$##')
+  if printf '%s' "$tpl" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+    p=$(gh api "repos/$tpl" --jq .private 2>/dev/null || true)
+    case "$p" in true|false) echo "$p"; return ;; esac
+  fi
+  echo unknown
+}
 say "Secrets the workflows need"
 if [ "$DRY_RUN" = 1 ]; then
-  printf '  [dry-run] check that RELEASE_PLEASE_TOKEN is set\n'
-elif gh secret list --repo "$FULL" --json name --jq '.[].name' 2>/dev/null | grep -qx RELEASE_PLEASE_TOKEN; then
-  ok "RELEASE_PLEASE_TOKEN is set"
+[% for s in secrets if s.store == 'actions' %]
+  printf '  [dry-run] check that [[ s.name ]] is set\n'
+[% endfor %]
 else
-  warn "RELEASE_PLEASE_TOKEN is not set: release.yml fails on every push to main until it is (see the manual steps)"
+  SECRETS_SET=$(gh secret list --repo "$FULL" --json name --jq '.[].name' 2>/dev/null || true)
+[% for s in secrets if s.store == 'actions' %]
+[% if s.only_if == 'template_private' %]
+  if [ "$(template_private)" = false ]; then
+    ok "[[ s.name ]] is not needed: the template repo is public"
+  elif grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
+[% elif s.waived_if and s.waived_if.workflow_disabled %]
+  if [ "$(gh api "repos/$FULL/actions/workflows/[[ s.waived_if.workflow_disabled ]]" --jq .state 2>/dev/null || true)" = disabled_manually ]; then
+    ok "[[ s.name ]] is not needed: [[ s.waived_if.workflow_disabled ]] is disabled (re-enable with: gh workflow enable [[ s.waived_if.workflow_disabled ]])"
+  elif grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
+[% else %]
+  if grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
+[% endif %]
+    ok "[[ s.name ]] is set"
+  else
+    warn "[[ s.name ]] is not set[% if condition_note(s) %] ([[ condition_note(s) | replace('`', '') ]])[% endif %]: [[ s.if_missing ]] until it is (see the manual steps)"
+  fi
+[% endfor %]
 fi
 
-[% endif %]
 # ------------------------------------------------------------------ manual steps
 say "Done. Remaining manual steps (also in docs/SETUP.md):"
 sed -n '/^## Manual steps/,$p' docs/SETUP.md | tail -n +2

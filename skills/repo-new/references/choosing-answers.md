@@ -46,7 +46,7 @@ The questions themselves (names, types, choices, defaults, validators) live in `
 
 ## Third-party services
 
-**`ai_reviewers`** (multiselect: `claude`, `coderabbit`). `claude` adds a workflow using the Claude Code GitHub Action on the user's Claude subscription (needs a `CLAUDE_CODE_OAUTH_TOKEN` secret). `coderabbit` adds `.coderabbit.yaml`; free on public repos, paid after a trial on private ones. Default: both for public, Claude only for private.
+**`ai_reviewers`** (multiselect: `claude`, `coderabbit`). `claude` adds a workflow using the Claude Code GitHub Action on the user's Claude subscription (it needs a secret; the generated `docs/secrets.md` lists every secret the answers add). `coderabbit` adds `.coderabbit.yaml`; free on public repos, paid after a trial on private ones. Default: both for public, Claude only for private.
 
 **`quality_platform`** (`none` / `sonarqube-cloud`). SonarQube Cloud adds maintainability metrics, not security. Free and complete for public repos; on private repos the free plan is capped at 50k LOC and main-branch only. Default: on for public, off for private. `sonar_organization` defaults to the lowercased owner.
 

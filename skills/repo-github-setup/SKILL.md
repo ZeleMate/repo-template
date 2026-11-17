@@ -40,12 +40,10 @@ The script is idempotent and reports failures instead of stopping, because some 
 The script ends by printing the manual checklist from `docs/SETUP.md`. Go through it with the user one item at a time, and for each give the exact link or command. Some notes that make these go smoothly:
 
 - **Secrets are typed by the user, not by you.** The generated `.claude/settings.json` denies `gh secret *` to Claude on purpose, so a token never passes through the conversation or the transcript. Give the command and let the user run it in their terminal.
-- **Claude review:** no Claude GitHub App is needed; since template v0.2.0 the workflow posts with the job's own `GITHUB_TOKEN`. `claude setup-token` prints the OAuth token, and it usually wraps onto two lines, so a pasted copy can include a line break and fail with an immediate `is_error` result. Have the user copy it, check `pbpaste | tr -d '[:space:]' | wc -c` shows about 108, then store it with `pbpaste | tr -d '[:space:]' | gh secret set CLAUDE_CODE_OAUTH_TOKEN -R <owner>/<slug>` and clear the clipboard. Until the secret exists, the review job passes with a warning.
-- **RELEASE_PLEASE_TOKEN:** fine-grained PAT scoped to this one repo with contents + pull requests read/write. Required: `release.yml` fails on every push to `main` until it exists, because the bootstrap stops Actions from opening PRs with `GITHUB_TOKEN` (and PRs that token opens wouldn't trigger CI, so `ci-ok` would never report). A repo that won't release can skip the token and run `gh workflow disable release.yml` instead; the audit then doesn't ask for it.
-- **TEMPLATE_READ_TOKEN** (only when the template repo is private): fine-grained PAT with contents:read on the template repo alone. Without it the weekly "Template update check" workflow fails. Set an expiry and a reminder to rotate it; the audit below flags it when missing.
+- **Which secrets, and how to create each:** the repo's `.github/secret-requirements.json` lists them, and `docs/SETUP.md` has the step for each one. Don't work them out from the answers yourself. A repo that won't release can run `gh workflow disable release.yml` instead of creating `RELEASE_PLEASE_TOKEN`; the audit then doesn't ask for it.
 - **SonarQube Cloud:** install its GitHub App and import the repo. Leave Automatic Analysis on; it needs no CI job or `SONAR_TOKEN`.
 - **Trusted publishing:** for a brand-new package use the registry's "pending publisher" form, with workflow `release.yml` and (if public or Pro) environment `release`.
-- **Agentic apps:** a spend-capped key for `EVAL_ANTHROPIC_API_KEY`, and `docs/THREAT_MODEL.md` §5 plus `docs/agent-policy.md` filled in before the first agent feature ships.
+- **Agentic apps:** `docs/THREAT_MODEL.md` §5 plus `docs/agent-policy.md` filled in before the first agent feature ships.
 - **Malware alerts** are a UI-only toggle under Settings → Advanced Security.
 - `uvx pre-commit install` in the local clone.
 
@@ -59,6 +57,6 @@ Run the audit below. Everything the API can see should be `ok`; whatever is left
 bash <this skill's base directory>/scripts/audit-github.sh <repo-dir> [owner/repo]
 ```
 
-Read-only. It compares merge settings, Actions permissions, SHA pinning, Dependabot, public-repo security features, the `main` ruleset, release settings and the names of required secrets against what the answers imply, and lists what the API can't show (apps, SonarQube, trusted publishers). `?` means it couldn't read a setting, usually missing admin rights or a plan limit — not drift.
+Read-only. It compares merge settings, Actions permissions, SHA pinning, Dependabot, public-repo security features, the `main` ruleset, release settings against what the answers imply, and the names of secrets against the repo's `.github/secret-requirements.json` (a repo generated before that file existed gets `?` for secrets until `copier update`), and lists what the API can't show (apps, SonarQube, trusted publishers). `?` means it couldn't read a setting, usually missing admin rights or a plan limit — not drift.
 
 For drift, the usual fix is re-running `./scripts/bootstrap-github.sh` (dry run first), since it is idempotent. Missing secrets go back to the manual steps above. If a setting was changed on purpose, suggest recording that as an ADR in `docs/decisions/` rather than leaving it as silent drift.

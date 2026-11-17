@@ -16,7 +16,7 @@ Work in the template repo (the folder with `copier.yml`, `template/`, `scripts/t
 - Only files ending in `.jinja` are rendered; the suffix is stripped. A file containing template tags but without `.jinja` is copied verbatim and ships unrendered tags (the test script catches this).
 - Conditional files and folders use the tag in the *name*: `[% if agentic %]evals[% endif %]`. An empty rendered name means the file is skipped.
 - `trim_blocks` and `lstrip_blocks` are on, so a `[% if %]` on its own line leaves no blank line. Use `[%+ ... %]` or `+%]` where you need to keep the whitespace (see `docs/SETUP.md.jinja`).
-- `template/docs/SETUP.md.jinja` is the manual checklist and `template/scripts/bootstrap-github.sh.jinja` is the automated part. When you add anything that needs a secret, an app or a GitHub setting, update both — and the `repo-github-setup` skill's `scripts/audit-github.sh` in this plugin if the setting can be read from the API.
+- `template/docs/SETUP.md.jinja` is the manual checklist and `template/scripts/bootstrap-github.sh.jinja` is the automated part. When you add anything that needs an app or a GitHub setting, update both — and the `repo-github-setup` skill's `scripts/audit-github.sh` in this plugin if the setting can be read from the API. A secret is different: add one entry to `includes/secrets.jinja` and nothing else; SETUP.md, secrets.md, bootstrap and the audit all read it (ADR 0003).
 
 ## Changing things
 

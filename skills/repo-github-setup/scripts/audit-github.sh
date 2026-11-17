@@ -20,12 +20,9 @@ gov = vis == "public" or a.get("github_plan") == "pro"
 out = {
     "OWNER": a.get("github_owner", ""), "SLUG": a.get("repo_name") or a.get("project_slug", ""), "VIS": vis,
     "GOV": "yes" if gov else "no", "PUBLISHES": "yes" if a.get("publishes") else "no",
-    "AGENTIC": "yes" if a.get("agentic") else "no",
-    "CLAUDE": "yes" if "claude" in (a.get("ai_reviewers") or []) else "no",
     "CODERABBIT": "yes" if "coderabbit" in (a.get("ai_reviewers") or []) else "no",
     "SONAR": "yes" if a.get("quality_platform") == "sonarqube-cloud" else "no",
     "SRC": a.get("_src_path", ""),
-    "BASELINE": "no" if a.get("languages") else "yes",
 }
 for k, v in out.items():
     print(f"{k}={shlex.quote(str(v))}")
@@ -110,34 +107,53 @@ if [[ "$PUBLISHES" = yes ]]; then
 fi
 
 echo "==> secrets (names only)"
-names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null) || { skip "cannot list secrets (needs admin)"; names=""; }
-want=()
-# The template's release workflow exists only where it manages a language. A repo that doesn't
-# release disables it (`gh workflow disable release.yml`), and then needs no token.
-if [[ "$BASELINE" = no ]]; then
-  rel_state=$(api "repos/$FULL/actions/workflows/release.yml" | val .state)
-  if [[ "$rel_state" = disabled_manually ]]; then
-    ok "release.yml disabled, so RELEASE_PLEASE_TOKEN is not needed (re-enable with: gh workflow enable release.yml)"
-  else
-    want+=(RELEASE_PLEASE_TOKEN)
+# The repo's secret requirements, rendered by the template (ADR 0003). The audit only applies them;
+# which secret a repo needs is decided in the template's includes/secrets.jinja, not here.
+REQS="$REPO_DIR/.github/secret-requirements.json"
+# Sets tpl_private to true, false or unknown: is the template repo private? Asks GitHub once.
+tpl_private=""
+check_template_private() {
+  [[ -n "$tpl_private" ]] && return
+  local tpl p
+  tpl=$(sed -E -e 's#^gh:##' -e 's#^(https://|git@)github\.com[:/]##' -e 's#\.git$##' <<<"$SRC")
+  tpl_private=unknown
+  if [[ "$tpl" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+    p=$(api "repos/$tpl" --jq .private)
+    [[ "$p" = true || "$p" = false ]] && tpl_private=$p
   fi
-fi
-[[ "$CLAUDE" = yes ]] && want+=(CLAUDE_CODE_OAUTH_TOKEN)
-[[ "$AGENTIC" = yes ]] && want+=(EVAL_ANTHROPIC_API_KEY)
-# The weekly template update check can only read a private template with TEMPLATE_READ_TOKEN.
-tpl=$(sed -E -e 's#^gh:##' -e 's#^(https://|git@)github\.com[:/]##' -e 's#\.git$##' <<<"$SRC")
-if [[ "$tpl" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-  case "$(api "repos/$tpl" --jq .private)" in
-    true) want+=(TEMPLATE_READ_TOKEN) ;;
-    false) ;;
-    *) skip "template $tpl: could not tell if it is private; if so, TEMPLATE_READ_TOKEN must be set" ;;
-  esac
+}
+if [[ ! -f "$REQS" ]]; then
+  skip "no .github/secret-requirements.json (template older than ADR 0003): run copier update, then audit again"
+elif ! names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null); then
+  skip "cannot list secrets (needs admin)"
 else
-  skip "template source '$SRC' is not a GitHub repo, so the weekly update check cannot reach it"
+  # One line per Actions secret: name, waiver (kind=value) and condition, "-" when absent.
+  # ("-" because read collapses empty tab-separated fields.) fd 3, so gh can't eat the list.
+  while IFS=$'\t' read -r -u 3 name waiver cond; do
+    case "$waiver" in
+      -) ;;
+      workflow_disabled=*)
+        wf=${waiver#workflow_disabled=}
+        if [[ "$(api "repos/$FULL/actions/workflows/$wf" | val .state)" = disabled_manually ]]; then
+          ok "$wf disabled, so $name is not needed (re-enable with: gh workflow enable $wf)"; continue
+        fi ;;
+      *) skip "$name: unknown waiver '$waiver' (update the repo-standards plugin)"; continue ;;
+    esac
+    case "$cond" in
+      -) ;;
+      template_private)
+        check_template_private
+        case "$tpl_private" in
+          true) ;;
+          false) continue ;;
+          *) skip "template source '$SRC': could not tell if it is a private GitHub repo; if so, $name must be set"; continue ;;
+        esac ;;
+      *) skip "$name: unknown condition '$cond' (update the repo-standards plugin)"; continue ;;
+    esac
+    if grep -qx "$name" <<<"$names"; then ok "secret $name set"; else bad "secret $name missing"; fi
+  done 3< <(jq -r '.secrets[] | select(.store == "actions")
+    | [.name, ((.waived_if // {}) | to_entries | map("\(.key)=\(.value)") | join(",") | if . == "" then "-" else . end), (.only_if // "-")] | @tsv' "$REQS")
 fi
-for s in ${want[@]+"${want[@]}"}; do
-  if grep -qx "$s" <<<"$names"; then ok "secret $s set"; else bad "secret $s missing"; fi
-done
 
 echo "==> not checkable from the API (confirm by hand)"
 [[ "$CODERABBIT" = yes ]] && skip "CodeRabbit GitHub App installed on the repo"

@@ -15,4 +15,4 @@ git ls-remote --tags --refs https://github.com/ZeleMate/repo-template | sed 's|.
 ```
 
 - Pass that tag as `--vcs-ref`. Copier and the update check both track tags, so a tag gives a clean baseline for later 3-way updates. Use `--vcs-ref HEAD` only when the user explicitly wants unreleased changes (for example while testing the template itself).
-- If `ls-remote` fails with an auth error, the template repo is private: the user needs read access, and `gh auth setup-git` (or an SSH key) so git can fetch it. The generated repo's weekly check then also needs a `TEMPLATE_READ_TOKEN` secret (fine-grained PAT, contents:read on the template repo).
+- If `ls-remote` fails with an auth error, the template repo is private: the user needs read access, and `gh auth setup-git` (or an SSH key) so git can fetch it. The generated repo's weekly check then also needs a template-read token; its `docs/SETUP.md` has the step.
