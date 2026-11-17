@@ -43,3 +43,7 @@ _Avoid_: local workflow, vendored workflow
 **Merge gate**:
 The single required status check that decides whether a generated repo's change is green; it belongs to the caller workflow, not the central workflow repo.
 _Avoid_: ci-ok (that is its job name), required check, status gate
+
+**Secret requirement**:
+A credential a generated repo needs, with where it is stored, which workflow or tool uses it, when it applies and how often to rotate it.
+_Avoid_: secret list, token manifest, required secrets

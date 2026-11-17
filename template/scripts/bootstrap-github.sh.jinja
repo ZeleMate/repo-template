@@ -118,18 +118,25 @@ JSON
   fi
 fi
 
-[% if languages %]
 # ------------------------------------------------------------------ secrets
+# The Actions secrets in this repo's secret requirements (.github/secret-requirements.json).
+[% from 'includes/secrets.jinja' import secrets, condition_note with context %]
 say "Secrets the workflows need"
 if [ "$DRY_RUN" = 1 ]; then
-  printf '  [dry-run] check that RELEASE_PLEASE_TOKEN is set\n'
-elif gh secret list --repo "$FULL" --json name --jq '.[].name' 2>/dev/null | grep -qx RELEASE_PLEASE_TOKEN; then
-  ok "RELEASE_PLEASE_TOKEN is set"
+[% for s in secrets if s.store == 'actions' %]
+  printf '  [dry-run] check that [[ s.name ]] is set\n'
+[% endfor %]
 else
-  warn "RELEASE_PLEASE_TOKEN is not set: release.yml fails on every push to main until it is (see the manual steps)"
+  SECRETS_SET=$(gh secret list --repo "$FULL" --json name --jq '.[].name' 2>/dev/null || true)
+[% for s in secrets if s.store == 'actions' %]
+  if grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
+    ok "[[ s.name ]] is set"
+  else
+    warn "[[ s.name ]] is not set[% if condition_note(s) %] ([[ condition_note(s) | replace('`', '') ]])[% endif %]: [[ s.if_missing ]] until it is (see the manual steps)"
+  fi
+[% endfor %]
 fi
 
-[% endif %]
 # ------------------------------------------------------------------ manual steps
 say "Done. Remaining manual steps (also in docs/SETUP.md):"
 sed -n '/^## Manual steps/,$p' docs/SETUP.md | tail -n +2

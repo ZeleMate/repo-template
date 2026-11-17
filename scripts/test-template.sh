@@ -150,5 +150,27 @@ check "dependabot automerge uses a merge method the repo and its rulesets allow"
 check "typescript projects ship an expiring osv-scanner accept list" sh -c "grep -q '^ignoreUntil = ' \"$OUT/ts/osv-scanner.toml\" && grep -q '^ignoreUntil = ' \"$OUT/multi/typescript/osv-scanner.toml\" && test ! -e \"$OUT/py/osv-scanner.toml\""
 check "uncapped Python still tests up to 3.14" sh -c "grep -q '\"3.14\"' \"$OUT/py/.github/workflows/ci.yml\""
 
+# Secret requirements (ADR 0003): the rendered list of Actions secrets must match the secrets the
+# rendered workflows read, and every file it names as a user must exist.
+SECRETS_CHECK='
+import json, pathlib, re, sys
+d = pathlib.Path(sys.argv[1])
+reqs = json.loads((d / ".github/secret-requirements.json").read_text())["secrets"]
+listed = {r["name"] for r in reqs if r["store"] == "actions"}
+used = set()
+for f in (d / ".github/workflows").glob("*.yml"):
+    used |= set(re.findall(r"secrets\.([A-Za-z_][A-Za-z0-9_]*)", f.read_text()))
+used.discard("GITHUB_TOKEN")
+missing_users = [r["used_by"] for r in reqs if r["used_by"] and not (d / r["used_by"]).exists()]
+problems = [f"workflows use {sorted(used - listed)} but the secret requirements do not list them"] if used - listed else []
+problems += [f"listed but no workflow uses {sorted(listed - used)}"] if listed - used else []
+problems += [f"used_by files missing: {missing_users}"] if missing_users else []
+sys.exit("\n".join(problems) or None)
+'
+echo "==> secret requirements match the workflows, for every answer set"
+for d in py ts ts-ox rs multi base-pub base-priv py-extra cased; do
+  check "$d" python3 -c "$SECRETS_CHECK" "$OUT/$d"
+done
+
 echo
 [[ ! -e "$OUT/.failed" ]] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }
