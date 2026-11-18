@@ -127,9 +127,13 @@ if [[ ! -f "$REQS" ]]; then
 elif ! names=$(gh secret list -R "$FULL" --json name --jq '.[].name' 2>/dev/null); then
   skip "cannot list secrets (needs admin)"
 else
-  # One line per Actions secret: name, waiver (kind=value) and condition, "-" when absent.
+  # One line per Actions secret: name, user file, waiver (kind=value) and condition, "-" when absent.
   # ("-" because read collapses empty tab-separated fields.) fd 3, so gh can't eat the list.
-  while IFS=$'\t' read -r -u 3 name waiver cond; do
+  while IFS=$'\t' read -r -u 3 name used_by waiver cond; do
+    # A secret is needed only while the file that reads it is in the repo (a repo may delete a workflow).
+    if [[ "$used_by" != - && ! -e "$REPO_DIR/$used_by" ]]; then
+      ok "$name not needed: $used_by isn't in this repo"; continue
+    fi
     case "$waiver" in
       -) ;;
       workflow_disabled=*)
@@ -152,7 +156,7 @@ else
     esac
     if grep -qx "$name" <<<"$names"; then ok "secret $name set"; else bad "secret $name missing"; fi
   done 3< <(jq -r '.secrets[] | select(.store == "actions")
-    | [.name, ((.waived_if // {}) | to_entries | map("\(.key)=\(.value)") | join(",") | if . == "" then "-" else . end), (.only_if // "-")] | @tsv' "$REQS")
+    | [.name, (.used_by // "-"), ((.waived_if // {}) | to_entries | map("\(.key)=\(.value)") | join(",") | if . == "" then "-" else . end), (.only_if // "-")] | @tsv' "$REQS")
 fi
 
 echo "==> not checkable from the API (confirm by hand)"

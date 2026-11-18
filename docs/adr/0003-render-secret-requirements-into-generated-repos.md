@@ -15,6 +15,7 @@ The template's secret requirements live in one Jinja data file, `includes/secret
 ## Consequences
 
 - **Conditions that are only known once the repo exists** (whether `release.yml` is disabled, whether the template repo is private) appear in the file as `waived_if` and `only_if` fields from a small fixed set. The audit implements each kind of check once and doesn't know which secret it applies to.
+- **A secret is needed only while the file named in its `used_by` is in the repo.** A generated repo may delete a workflow it doesn't want (two adopted repos dropped `evals.yml`), and the template can't see that at render time, so bootstrap and the audit check for the file instead.
 - **A repo without the file gets `?` for secrets in the audit, not drift**, until it runs `copier update`.
 - **The JSON omits the setup instructions**, so editing their text doesn't cause conflicts in `copier update`.
 - **Workflows still name their own secrets.** `test-template.sh` fails when the rendered Actions secret requirements differ from the `secrets.X` names in the rendered workflows, for every answer set.
