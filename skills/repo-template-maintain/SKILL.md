@@ -45,7 +45,7 @@ It lists every pinned action, hook, scanner binary, `uvx`/`pnpm dlx` tool versio
 ./scripts/test-template.sh <outdir>
 ```
 
-It generates five answer sets (each language alone, all three together, public/private, agentic or not, publishing or not, both linters and type checkers) from `HEAD`, then runs actionlint, zizmor, pre-commit, a check for unrendered tags, and the real toolchains on each output. It needs uv, pnpm and node; cargo, actionlint and zizmor are optional and skipped when missing — say which were skipped when reporting, because a skipped Rust run proves nothing about Rust.
+It generates nine answer sets from `HEAD` (each language alone, all three together, baseline repos, public/private, agentic or not, publishing or not, both linters and type checkers, a capitalised repo name) and runs `skills/repo-new/scripts/verify-generated.sh` on each: the same checker the skills run on a real repo (actionlint, zizmor, pre-commit, the merge gate, Semgrep, osv-scanner, unrendered tags and the real toolchains). On top of that it asserts things about the template itself, and that verify fails on a deliberately broken repo. A check of a generated repo belongs in verify-generated.sh; only a check of the template belongs in test-template.sh. It needs uv, pnpm and node; cargo, actionlint, zizmor and osv-scanner are optional and skipped when missing — say which were skipped when reporting, because a skipped Rust run proves nothing about Rust.
 
 If you added a question or a conditional file, make sure at least one answer set in `test-template.sh` exercises each branch, and add one if not.
 

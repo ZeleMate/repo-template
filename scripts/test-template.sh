@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Generate the template for several answer sets and check the output.
 #   ./scripts/test-template.sh [outdir]
+# Every answer set goes through skills/repo-new/scripts/verify-generated.sh, the same checker the skills
+# run on a real repo; this script adds only the assertions about the template itself.
 # Needs: uv, pnpm, node, git; cargo optional (Rust checks are skipped without it); actionlint, zizmor and osv-scanner optional.
 set -euo pipefail
 
 TEMPLATE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$(mktemp -d)}"
+VERIFY="$TEMPLATE/skills/repo-new/scripts/verify-generated.sh"
 mkdir -p "$OUT"
-rm -f "$OUT/.failed"
+failed=() # answer sets and template assertions that failed
 
 # pre-commit and Semgrep run from the central workflow repo's tool lock, at the SHA the template pins.
 # CENTRAL_DIR=<local clone> skips the download (for testing an unreleased central change).
@@ -21,12 +24,15 @@ if [[ -z "${CENTRAL_DIR:-}" ]]; then
     git -C "$CENTRAL_DIR" checkout -q FETCH_HEAD
   fi
 fi
-TOOLS="$CENTRAL_DIR/tools"
+export CENTRAL_DIR
 
-check() { # name, command...
+check() { # name, command... (an assertion about the template, beyond what verify checks)
   local name=$1; shift
-  # Failures are recorded in a file, because language checks run in subshells.
-  if "$@" >"$OUT/.log" 2>&1; then echo "    ok   $name"; else echo "    FAIL $name"; sed 's/^/         /' "$OUT/.log" | tail -25; touch "$OUT/.failed"; fi
+  if "$@" >"$OUT/.log" 2>&1; then echo "    ok   $name"; else echo "    FAIL $name"; sed 's/^/         /' "$OUT/.log" | tail -25; failed+=("$name"); fi
+}
+
+verify() { # answer set: run the generated-repo checker on it
+  bash "$VERIFY" "$OUT/$1" || failed+=("$1 (verify-generated)")
 }
 
 gen() { # dir, extra copier -d args...
@@ -38,82 +44,26 @@ gen() { # dir, extra copier -d args...
   git -C "$OUT/$dir" init -q -b main
 }
 
-lint_workflows() {
-  local d=$1
-  command -v actionlint >/dev/null && check "actionlint" sh -c "cd \"$d\" && actionlint -no-color"
-  command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity medium "$d/.github/workflows"
-  check "bootstrap syntax" bash -n "$d/scripts/bootstrap-github.sh"
-  check "json valid" sh -c "for f in \"$d\"/.claude/settings.json \"$d\"/.github/rulesets/main.json \"$d\"/release-please-config.json \"$d\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
-  check "ci tools lock" uv lock --check --project "$d/.github/tools"
-  check "pre-commit hooks" sh -c "cd \"$d\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --no-build --project \"$TOOLS\" pre-commit run --all-files"
-  check "merge gate lists every job" uv run --locked --no-build --project "$TOOLS" python "$CENTRAL_DIR/scripts/check_merge_gate.py" "$d/.github/workflows/ci.yml" ci-ok
-  grep -q "sast: true" "$d/.github/workflows/security.yml" && check "semgrep (as in the central security workflow)" sh -c "cd \"$d\" && EIO_BACKEND=posix uv run --locked --no-build --project \"$TOOLS\" semgrep scan --config p/default --error --metrics off --disable-version-check --quiet ."
-  # Same scan as the central security workflow: a fresh repo must not start with a red merge gate.
-  if command -v osv-scanner >/dev/null; then
-    osv_args=(scan source --recursive); [[ -f "$d/evals/run.py.lock" ]] && osv_args+=(--lockfile "uv.lock:$d/evals/run.py.lock")
-    check "osv-scanner" osv-scanner "${osv_args[@]}" "$d"
-  fi
-  check "no unrendered tags" sh -c "! grep -rIl --exclude-dir=node_modules --exclude-dir=.venv -E -e '\[\[ [A-Za-z_]' -e '\[% ' \"$d\" | grep -v pnpm-lock"
-}
-
-check_evals() { # mock evals, as the evals workflow runs them on PRs; catches pins inside the uv cooldown
-  local d=$1
-  [[ -f "$d/evals/run.py" ]] && check "evals --mock" sh -c "cd \"$d\" && uv run --locked evals/run.py --mock"
-  return 0
-}
-
-check_python() {
-  local d=$1
-  ( cd "$d"
-    check "uv sync --locked" uv sync --locked
-    check "ruff format" uv run ruff format --check .
-    check "ruff check" uv run ruff check .
-    if grep -q pyright pyproject.toml; then check "pyright" uv run pyright; else check "mypy" uv run mypy; fi
-    check "pytest" uv run pytest --cov -q
-    check "uv build" uv build -q )
-}
-
-check_ts() {
-  local d=$1
-  ( cd "$d"
-    check "pnpm install" pnpm install --frozen-lockfile --silent
-    check "prettier" pnpm run -s format:check
-    check "lint" pnpm run -s lint
-    check "typecheck" pnpm run -s typecheck
-    check "vitest" pnpm run -s test:coverage
-    check "build" pnpm run -s build )
-}
-
-check_rust() {
-  local d=$1
-  command -v cargo >/dev/null || { echo "    skip rust (cargo not installed)"; return; }
-  ( cd "$d"
-    check "cargo fmt" cargo fmt --check
-    check "clippy" cargo clippy --all-targets -- -D warnings
-    check "cargo test" cargo test )
-}
-
 echo "==> python, public, agentic, publishes, sonar + coderabbit"
 gen py -d languages='[python]' -d visibility=public -d agentic=true -d publishes=true
-lint_workflows "$OUT/py"; check_python "$OUT/py"; check_evals "$OUT/py"
+verify py
 
 echo "==> typescript, private free, eslint, not agentic"
 gen ts -d languages='[typescript]' -d visibility=private -d agentic=false
-lint_workflows "$OUT/ts"; check_ts "$OUT/ts"
+verify ts
 
 echo "==> typescript, oxlint, mypy n/a"
 gen ts-ox -d languages='[typescript]' -d ts_linter=oxlint -d agentic=false
-check_ts "$OUT/ts-ox"
+verify ts-ox
 
 echo "==> rust, public, publishes"
 gen rs -d languages='[rust]' -d visibility=public -d publishes=true -d agentic=false
-lint_workflows "$OUT/rs"; check_rust "$OUT/rs"
+verify rs
 
 echo "==> python + typescript + rust, private pro, mypy, sonar, publishes"
 gen multi -d languages='[python, typescript, rust]' -d visibility=private -d github_plan=pro \
   -d python_type_checker=mypy -d quality_platform=sonarqube-cloud -d publishes=true
-lint_workflows "$OUT/multi"; check_evals "$OUT/multi"
-check_python "$OUT/multi/python"; check_ts "$OUT/multi/typescript"; check_rust "$OUT/multi/rust"
+verify multi
 
 # Baseline repos (ADR 0002): no managed language, so none of the left-out files may render.
 check_baseline() {
@@ -124,21 +74,23 @@ check_baseline() {
 
 echo "==> baseline, public, agentic, bun + docker"
 gen base-pub -d languages='[]' -d visibility=public -d agentic=true -d extra_ecosystems='[bun, docker]'
-lint_workflows "$OUT/base-pub"; check_baseline "$OUT/base-pub"; check_evals "$OUT/base-pub"
+verify base-pub; check_baseline "$OUT/base-pub"
 check "extra ecosystems reach dependabot" sh -c "grep -q 'package-ecosystem: bun' \"$OUT/base-pub/.github/dependabot.yml\" && grep -q 'package-ecosystem: docker' \"$OUT/base-pub/.github/dependabot.yml\""
 
 echo "==> baseline, private free, not agentic, no extra ecosystems"
 gen base-priv -d languages='[]' -d visibility=private -d agentic=false -d ai_reviewers='[]'
-lint_workflows "$OUT/base-priv"; check_baseline "$OUT/base-priv"
+verify base-priv; check_baseline "$OUT/base-priv"
 
 echo "==> python with an extra ecosystem that collides (uv) and one that doesn't (docker)"
 gen py-extra -d languages='[python]' -d agentic=false -d extra_ecosystems='[uv, docker]'
+verify py-extra
 check "no duplicate dependabot entry for a managed ecosystem" sh -c "[ \"\$(grep -c 'directory: /\$' \"$OUT/py-extra/.github/dependabot.yml\")\" = 3 ]"
 check "ci-local.yml is never overwritten" sh -c "cd \"$OUT/py-extra\" && echo '# mine' >> .github/workflows/ci-local.yml && git add -A && git -c user.name=t -c user.email=t@example.com commit -qm init && uvx copier recopy --trust --defaults --quiet --vcs-ref HEAD --overwrite . >/dev/null 2>&1; grep -q '# mine' .github/workflows/ci-local.yml"
 
 echo "==> repo name with capitals and underscores, capped Python range"
 gen cased -d project_name=LegalQA_v2 -d languages='[python]' -d agentic=false -d visibility=public \
   -d python_version=3.11 -d python_max_version=3.12
+verify cased
 check "repo_name keeps the GitHub name; slug stays lowercase" sh -c "cd \"$OUT/cased\" && grep -qx 'REPO=\"LegalQA_v2\"' scripts/bootstrap-github.sh && grep -q 'example/LegalQA_v2/security' .github/ISSUE_TEMPLATE/config.yml && grep -qx 'name = \"legalqa-v2\"' pyproject.toml"
 check "python_max_version caps requires-python and the CI matrix" sh -c "cd \"$OUT/cased\" && grep -qx 'requires-python = \">=3.11,<3.13\"' pyproject.toml && grep -q \"python-versions: '\\[\\\"3.11\\\", \\\"3.12\\\"\\]'\" .github/workflows/ci.yml"
 check "gitignore re-includes the CI tools' .python-version last" sh -c "cd \"$OUT/cased\" && [ \"\$(tail -n 1 .gitignore)\" = '!.github/tools/.python-version' ] && printf '.python-version\n' | cat - .gitignore > .gi && mv .gi .gitignore && ! git check-ignore -q .github/tools/.python-version"
@@ -172,5 +124,17 @@ for d in py ts ts-ox rs multi base-pub base-priv py-extra cased; do
   check "$d" python3 -c "$SECRETS_CHECK" "$OUT/$d"
 done
 
+# verify-generated.sh is the only checker, so prove it fails when it should: a copy of a baseline
+# repo with an unrendered tag and an invalid settings.json must fail, naming both checks.
+echo "==> verify-generated.sh fails on a broken repo"
+rm -rf "${OUT:?}/broken"; cp -R "$OUT/base-priv" "$OUT/broken"
+printf '# [[ project_name ]]\n' > "$OUT/broken/NOTES.md"
+printf '{\n' > "$OUT/broken/.claude/settings.json"
+check "exits 1 and names the unrendered tag and the invalid JSON" sh -c "out=\$(bash \"$VERIFY\" \"$OUT/broken\" 2>&1); rc=\$?; echo \"\$out\" | tail -40; [ \$rc = 1 ] && echo \"\$out\" | grep -q 'FAIL no unrendered template tags' && echo \"\$out\" | grep -q 'FAIL json valid'"
+
 echo
-[[ ! -e "$OUT/.failed" ]] && echo "ALL CHECKS PASSED  ($OUT)" || { echo "SOME CHECKS FAILED  ($OUT)"; exit 1; }
+if [[ ${#failed[@]} -eq 0 ]]; then
+  echo "ALL CHECKS PASSED  ($OUT)"
+else
+  printf 'FAILED: %s\n' "${failed[@]}"; echo "($OUT)"; exit 1
+fi
