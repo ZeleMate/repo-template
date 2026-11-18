@@ -140,16 +140,21 @@ if [ "$DRY_RUN" = 1 ]; then
 else
   SECRETS_SET=$(gh secret list --repo "$FULL" --json name --jq '.[].name' 2>/dev/null || true)
 [% for s in secrets if s.store == 'actions' %]
+[% if s.used_by %]
+  # Needed only while [[ s.used_by ]] is in the repo.
+  if [ ! -e "[[ s.used_by ]]" ]; then
+    ok "[[ s.name ]] is not needed: [[ s.used_by ]] isn't in this repo"
+[% endif %]
 [% if s.only_if == 'template_private' %]
-  if [ "$(template_private)" = false ]; then
+  [[ 'elif' if s.used_by else 'if' ]] [ "$(template_private)" = false ]; then
     ok "[[ s.name ]] is not needed: the template repo is public"
   elif grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
 [% elif s.waived_if and s.waived_if.workflow_disabled %]
-  if [ "$(gh api "repos/$FULL/actions/workflows/[[ s.waived_if.workflow_disabled ]]" --jq .state 2>/dev/null || true)" = disabled_manually ]; then
+  [[ 'elif' if s.used_by else 'if' ]] [ "$(gh api "repos/$FULL/actions/workflows/[[ s.waived_if.workflow_disabled ]]" --jq .state 2>/dev/null || true)" = disabled_manually ]; then
     ok "[[ s.name ]] is not needed: [[ s.waived_if.workflow_disabled ]] is disabled (re-enable with: gh workflow enable [[ s.waived_if.workflow_disabled ]])"
   elif grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
 [% else %]
-  if grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
+  [[ 'elif' if s.used_by else 'if' ]] grep -qx [[ s.name ]] <<<"$SECRETS_SET"; then
 [% endif %]
     ok "[[ s.name ]] is set"
   else
