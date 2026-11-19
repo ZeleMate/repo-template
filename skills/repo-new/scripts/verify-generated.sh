@@ -84,7 +84,8 @@ for lang in $langs; do
         check "uv sync --locked" uv sync --locked
         check "ruff format" uv run ruff format --check .
         check "ruff check" uv run ruff check .
-        if grep -q pyright pyproject.toml; then check "pyright" uv run pyright; else check "mypy" uv run mypy; fi
+        # -p: a pyrightconfig.json in any parent folder would otherwise win over pyproject.toml.
+        if grep -q pyright pyproject.toml; then check "pyright" uv run pyright -p pyproject.toml; else check "mypy" uv run mypy; fi
         check "pytest" uv run pytest --cov -q
         check "uv build" uv build -q
         [[ "$fail" = 0 ]] ) || fail=1 ;;
