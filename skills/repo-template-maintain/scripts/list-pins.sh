@@ -57,6 +57,13 @@ grep -rhoE '(uvx|pnpm dlx|npx) [a-z0-9_-]+@[0-9][0-9.]*' template scripts .githu
       row tool "$name ($runner)" "$ver" "${new:-?}" "$(grep -rlF "$tool" template scripts .github 2>/dev/null | wc -l | tr -d ' ') file(s)"
     done
 
+echo "# Copier (generated repos lock it in .github/tools/uv.lock, which Dependabot moves; these are the floors)"
+copier_latest=$(curl -fsS https://pypi.org/pypi/copier/json 2>/dev/null | jq -r '.info.version // "?"')
+copier_floor=$(grep -oE '"copier>=[0-9][0-9.]*"' template/.github/tools/pyproject.toml.jinja | grep -oE '[0-9][0-9.]*')
+row tool "copier (.github/tools floor)" "${copier_floor:-?}" "${copier_latest:-?}" "template/.github/tools/pyproject.toml.jinja"
+min_copier=$(sed -nE 's/^_min_copier_version: *"?([0-9.]+)"?.*/\1/p' copier.yml)
+row tool "copier (_min_copier_version)" "${min_copier:-?}" "-" "copier.yml (raise only for a new Copier feature; at most ${copier_floor:-the tools floor})"
+
 echo "# toolchain defaults in copier.yml"
 uvx --no-build --quiet --from pyyaml python -c '
 import yaml
