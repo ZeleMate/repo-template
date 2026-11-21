@@ -16,6 +16,14 @@ _Avoid_: child repo, downstream repo, project
 A language named in the `languages` answer, for which the template writes and updates the toolchain, CI call and release config.
 _Avoid_: supported language, stack
 
+**Version floor**:
+The oldest version of a managed language that a generated repo supports, taken from its Copier answer; CI tests every minor from it up to the newest known version.
+_Avoid_: minimum version, MSRV
+
+**Newest known version**:
+The newest release of a managed language that the current template release knows about; it tops the CI version list and moves only with a template release.
+_Avoid_: latest, current
+
 **Baseline repo**:
 A generated repo with no managed language; the template gives it security scanning, Dependabot, the merge gate and agent config, and nothing else.
 _Avoid_: baseline-only mode, lite repo, minimal repo

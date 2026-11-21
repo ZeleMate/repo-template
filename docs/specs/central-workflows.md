@@ -29,6 +29,7 @@ One reusable workflow per concern, all under `ZeleMate/workflows/.github/workflo
 | `python.yml` | `ci.yml.jinja` job `python` (version matrix, type check, diff-cover) |
 | `typescript.yml` | `ci.yml.jinja` job `typescript` (incl. diff-cover) |
 | `rust.yml` | `ci.yml.jinja` job `rust` (incl. `cargo deny`) |
+| `go.yml` | nothing: added with Go in central `v1.1.0` ([spec](go.md), [ADR 0004](../adr/0004-add-go-as-a-managed-language-ahead-of-demand.md)) |
 | `security.yml` | `security.yml.jinja` jobs `sast`, `dependencies`, `secrets` |
 
 - **No `sonarqube.yml`.** SonarQube Cloud stays on its GitHub App (Automatic Analysis), which needs no CI job and no secret. Its check is not required. Coverage is not uploaded to SonarQube.
@@ -56,8 +57,9 @@ _From [How do caller workflows pass settings to central CI?](https://github.com/
 | `rust_toolchain` | `rust-toolchain.toml` |
 | `python_version` | `python-versions` input: a JSON list of minor versions that Copier writes, so no job computes the matrix |
 | `python_type_checker` | `type-checker` input (`pyright` or `mypy`) |
-| `py_dir`, `ts_dir`, `rs_dir` | a working-directory input on each language workflow |
-| `ts_linter`, `rust_msrv` | no input: CI never reads them |
+| `go_version` | `go-versions` input: a JSON list of minor versions from the version floor to the newest known version, which Copier writes ([Go spec](go.md) section 1) |
+| `py_dir`, `ts_dir`, `rs_dir`, `go_dir` | a working-directory input on each language workflow |
+| `ts_linter`, `rust_msrv`, `go_module` | no input: CI never reads them |
 
 Changing an input name later costs a central major release (section 7). The names as built:
 
@@ -67,6 +69,7 @@ Changing an input name later costs a central major release (section 7). The name
 | `python.yml` | `python-versions` (required), `type-checker`, `working-directory` |
 | `typescript.yml` | `node-version`, `working-directory` |
 | `rust.yml` | `working-directory` |
+| `go.yml` | `go-versions` (required), `working-directory` |
 | `security.yml` | `sast` (boolean, Copier writes `true` for private repos) |
 
 **Correction, Node version.** The earlier plan read the Node version from `package.json` `engines` and took no input. The template writes `engines` as a range (`>=26`), and `setup-node` resolves a range to the newest release that satisfies it, so CI would drift onto a non-LTS major. The caller now passes `node-version`, and `engines` is only the fallback.
@@ -81,7 +84,7 @@ _From [Centralise the workflows, and which ones?](https://github.com/ZeleMate/re
 
 - `ci-ok` stays in the caller `ci.yml`, keeps its job name (the ruleset requires it) and stays the single required status check.
 - It `needs:` **every** job in the caller: central calls and local jobs alike. It fails if any of them failed or was cancelled, as today.
-- **Superseded by [ADR 0002](../adr/0002-baseline-repos-with-no-managed-language.md):** a repo's own jobs no longer go into `ci.yml`. They go into the local CI workflow, `ci-local.yml`, which the template writes once and never updates. `ci.yml` calls it as the `local` job and lists that job in `ci-ok.needs`. A stack that keeps coming back still gets promoted to a template language: a Copier choice, a central workflow, and a pin bump.
+- **Superseded by [ADR 0002](../adr/0002-baseline-repos-with-no-managed-language.md):** a repo's own jobs no longer go into `ci.yml`. They go into the local CI workflow, `ci-local.yml`, which the template writes once and never updates. `ci.yml` calls it as the `local` job and lists that job in `ci-ok.needs`. A stack that keeps coming back still gets promoted to a template language: a Copier choice, a central workflow, and a pin bump. Go was added ahead of demand instead ([ADR 0004](../adr/0004-add-go-as-a-managed-language-ahead-of-demand.md)).
 - **Central `repo-lint.yml` checks this:** it fails if any job in the caller `ci.yml` is missing from `ci-ok.needs`.
 
 ## 6. Pinning and self-checkout
