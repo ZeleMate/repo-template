@@ -26,8 +26,10 @@ Pick the newest tag unless the user wants a specific one. To summarise the chang
 ## 3. Update
 
 ```bash
-uvx copier update --trust --defaults --conflict inline --vcs-ref <new-tag> [-d new_key=value ...]
+uv run --no-build --project .github/tools copier update --trust --defaults --conflict inline --vcs-ref <new-tag> [-d new_key=value ...]
 ```
+
+This runs the Copier version locked in the repo's `.github/tools/uv.lock`, which Dependabot keeps current, so every update of the repo uses a known Copier. A repo generated before template v0.4.0 has no `.github/tools`: use `uvx copier update` with the same flags for that one update, which brings the lock in.
 
 `--defaults` reuses every previous answer (Copier would otherwise re-ask them all); `--trust` allows the template's local tasks; `--conflict inline` writes `<<<<<<<`/`>>>>>>>` markers into files rather than `.rej` side files, which are easier to review.
 
