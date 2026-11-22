@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 
 	"[[ go_module ]]/internal/greeting"
 )
 
 // version is stamped by release builds with -ldflags "-X main.version=<version>".
+// A `go install …@<version>` build isn't stamped; versionOf falls back to its build info.
 var version = "dev"
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
@@ -25,10 +27,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	out := greeting.Greet("world")
 	if *showVersion {
-		out = version
+		info, ok := debug.ReadBuildInfo()
+		out = versionOf(version, info, ok)
 	}
 	if _, err := fmt.Fprintln(stdout, out); err != nil {
 		return 1
 	}
 	return 0
+}
+
+// versionOf returns the stamped version or, when there is none, the module version Go
+// records in a binary built with `go install`. Release builds record "(devel)" there.
+func versionOf(stamped string, info *debug.BuildInfo, ok bool) string {
+	if stamped == "dev" && ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return stamped
 }
