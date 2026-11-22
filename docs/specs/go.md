@@ -15,7 +15,7 @@ Out of scope:
 - Starter evals that drive the app itself instead of calling the model directly.
 - Adding a language to an existing single-language repo with `copier update`.
 
-**Status (2026-11-22):** built (steps 1–4) and live-checked (step 5, on `ZeleMate/go-live-check`); not released. The facts nobody could check by reading are listed under [Not verified](#not-verified), and the build checklist says where each one gets checked.
+**Status (2026-11-22):** built (steps 1–4), live-checked (step 5, on `ZeleMate/go-live-check`) and centrally released as `v1.1.0` (step 6); the template release (step 7) is next. The facts nobody could check by reading are listed under [Not verified](#not-verified), and the build checklist says where each one gets checked.
 
 ## 1. Copier questions and the starter
 
@@ -383,5 +383,5 @@ Everything below was read from docs and source but never run. Each item says whe
       - `go install <module>/go/cmd/<slug>@v0.2.0`.
    5. Fix what fails, in the central repo or the template, and repeat.
    6. Record the results in this spec's Not verified table, then archive the repo (don't delete it).
-6. **Central release.** Tag `ZeleMate/workflows` `v1.1.0`, then run `./scripts/bump-central-pin.sh v1.1.0` here.
+6. **Central release.** Tag `ZeleMate/workflows` `v1.1.0`, then run `./scripts/bump-central-pin.sh v1.1.0` here. **Done (2026-11-22):** `v1.1.0` is `1908ed9` (ZeleMate/workflows#6, with the tool-lock fixes in #5 and #7), and the template pins it.
 7. **Template release.** A `feat:` minor, with the plugin version bumped, since skills changed. Generated repos without Go see only three changes: the central pin moving to `v1.1.0`, the `gh release upload` deny rule, and, without Python, the README's uv line. Update this spec's status line.
