@@ -15,7 +15,7 @@ Out of scope:
 - Starter evals that drive the app itself instead of calling the model directly.
 - Adding a language to an existing single-language repo with `copier update`.
 
-**Status (2026-11-22):** built (steps 1–4), live-checked (step 5, on `ZeleMate/go-live-check`) and centrally released as `v1.1.0` (step 6); the template release (step 7) is next. The facts nobody could check by reading are listed under [Not verified](#not-verified), and the build checklist says where each one gets checked.
+**Status (2026-11-22):** built (steps 1–4), live-checked (step 5, on `ZeleMate/go-live-check`) and centrally released as `v1.1.0` (step 6) and released in template `v1.2.0` with plugin 1.2.0 (step 7). The facts nobody could check by reading are listed under [Not verified](#not-verified), and the build checklist says where each one gets checked.
 
 ## 1. Copier questions and the starter
 
