@@ -3,7 +3,8 @@
 #   ./scripts/test-template.sh [outdir]
 # Every answer set goes through skills/repo-new/scripts/verify-generated.sh, the same checker the skills
 # run on a real repo; this script adds only the assertions about the template itself.
-# Needs: uv, pnpm, node, git; cargo optional (Rust checks are skipped without it); actionlint, zizmor and osv-scanner optional.
+# Needs: uv, pnpm, node, git; cargo and go optional (Rust and Go checks are skipped without them);
+# actionlint, zizmor, osv-scanner and golangci-lint optional.
 set -euo pipefail
 
 TEMPLATE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -60,10 +61,36 @@ echo "==> rust, public, publishes"
 gen rs -d languages='[rust]' -d visibility=public -d publishes=true -d agentic=false
 verify rs
 
-echo "==> python + typescript + rust, private pro, mypy, sonar, publishes"
-gen multi -d languages='[python, typescript, rust]' -d visibility=private -d github_plan=pro \
+echo "==> go, public, publishes, not agentic"
+gen go -d languages='[go]' -d visibility=public -d publishes=true -d agentic=false
+verify go
+check "go: CI tests the floor up to the newest Go" sh -c "grep -q \"go-versions: '\\[\\\"1.26\\\", \\\"1.27\\\"\\]'\" \"$OUT/go/.github/workflows/ci.yml\""
+check "go: module at the root, root vX.Y.Z tags, 0.x bumps the minor on breaks" sh -c "cd \"$OUT/go\" && head -1 go.mod | grep -qx 'module github.com/example/demo-app' && grep -q '\"include-component-in-tag\": false' release-please-config.json && ! grep -q tag-separator release-please-config.json && grep -q '\"bump-minor-pre-major\": true' release-please-config.json"
+check "go: sbom waits for publish-go; public releases attest and warm the proxy" sh -c "f=\"$OUT/go/.github/workflows/release.yml\"; grep -q 'needs: \\[release-please, publish-go\\]' \"\$f\" && grep -q 'uses: actions/attest@' \"\$f\" && grep -q 'Warm the Go module proxy' \"\$f\""
+if command -v golangci-lint >/dev/null; then
+  # verify-generated.sh and repo-lint both skip this hook, so its entry is only tested here.
+  check "go: the golangci-lint-fmt hook runs" sh -c "cd \"$OUT/go\" && git add -A && uv run --locked --no-build --project \"$CENTRAL_DIR/tools\" pre-commit run golangci-lint-fmt --all-files"
+else
+  echo "    skip the golangci-lint-fmt hook (golangci-lint not installed)"
+fi
+# go-major-version.sh: manifest version, module suffix, expected exit code.
+rm -rf "${OUT:?}/go-major"; cp -R "$OUT/go" "$OUT/go-major"
+for row in "2.0.0||1" "2.0.0|/v2|0" "1.4.0|/v2|0" "3.0.0|/v2|1"; do
+  IFS='|' read -r ver suffix want <<<"$row"
+  check "go-major-version: $ver with module suffix '${suffix:-none}' exits $want" sh -c "cd \"$OUT/go-major\" && printf '{\\n  \".\": \"%s\"\\n}\\n' '$ver' > .release-please-manifest.json && sed -i.bak -E '1s|^module .*|module github.com/example/demo-app$suffix|' go.mod && rm -f go.mod.bak && sh scripts/go-major-version.sh; [ \$? = $want ]"
+done
+
+echo "==> go, private, agentic, floor at the newest Go"
+gen go-priv -d languages='[go]' -d visibility=private -d agentic=true -d go_version=1.27
+verify go-priv
+check "go-priv: one CI leg; no attestation or proxy warm in a private repo" sh -c "f=\"$OUT/go-priv/.github/workflows\"; grep -q \"go-versions: '\\[\\\"1.27\\\"\\]'\" \"\$f/ci.yml\" && ! grep -q 'actions/attest@' \"\$f/release.yml\" && ! grep -q 'proxy.golang.org' \"\$f/release.yml\""
+
+echo "==> python + typescript + rust + go, private pro, mypy, sonar, publishes"
+gen multi -d languages='[python, typescript, rust, go]' -d visibility=private -d github_plan=pro \
   -d python_type_checker=mypy -d quality_platform=sonarqube-cloud -d publishes=true
 verify multi
+check "multi: the Go module path ends in /go, tagged go/vX.Y.Z" sh -c "cd \"$OUT/multi\" && head -1 go/go.mod | grep -qx 'module github.com/example/demo-app/go' && python3 -c 'import json, sys; p = json.load(open(\"release-please-config.json\"))[\"packages\"]; g = p.pop(\"go\"); sys.exit(not (g[\"component\"] == \"go\" and g[\"tag-separator\"] == \"/\" and g[\"bump-minor-pre-major\"] and not any(\"bump-minor-pre-major\" in o or \"tag-separator\" in o for o in p.values())))'"
+check "multi: sbom waits for publish-go" sh -c "grep -q 'needs: \\[release-please, publish-go\\]' \"$OUT/multi/.github/workflows/release.yml\""
 
 # Baseline repos (ADR 0002): no managed language, so none of the left-out files may render.
 check_baseline() {
@@ -120,7 +147,7 @@ problems += [f"used_by files missing: {missing_users}"] if missing_users else []
 sys.exit("\n".join(problems) or None)
 '
 echo "==> secret requirements match the workflows, for every answer set"
-for d in py ts ts-ox rs multi base-pub base-priv py-extra cased; do
+for d in py ts ts-ox rs go go-priv multi base-pub base-priv py-extra cased; do
   check "$d" python3 -c "$SECRETS_CHECK" "$OUT/$d"
 done
 

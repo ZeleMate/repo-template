@@ -48,6 +48,18 @@ cargo deny check
 ```
 
 [% endif %]
+[% if 'go' in languages %]
+### Go[% if multi_lang %] (`[[ go_dir ]]/`)[% endif +%]
+
+```bash
+[% if multi_lang %]cd [[ go_dir ]]
+[% endif %]
+golangci-lint fmt && golangci-lint run
+go vet ./... && go mod tidy -diff
+go test -race ./...
+```
+
+[% endif %]
 
 Repo-wide hooks: `uvx pre-commit run --all-files` (or `prek run --all-files`).
 
@@ -61,8 +73,11 @@ Repo-wide hooks: `uvx pre-commit run --all-files` (or `prek run --all-files`).
 ## Dependencies
 
 - Add a dependency only after checking the package exists on the official registry, is maintained, and is the one you meant. AI-suggested package names are sometimes invented ("slopsquatting").
-- Never edit lockfiles by hand. Use the package manager[% if not baseline %] (`uv add`, `pnpm add`, `cargo add`)[% endif %].
+- Never edit lockfiles by hand. Use the package manager[% if not baseline %] (`uv add`, `pnpm add`, `cargo add`, `go get`)[% endif %].
 - New releases are held back by a cooldown (7 days). Do not bypass it.
+[% if 'go' in languages %]
+- A Go dependency that raises `go.mod`'s `go` line fails CI's floor leg. The floor moves only with `copier update -d go_version=1.N`.
+[% endif %]
 
 ## Security rules
 

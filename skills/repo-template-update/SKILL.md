@@ -33,6 +33,11 @@ uvx copier update --trust --defaults --conflict inline --vcs-ref <new-tag> [-d n
 
 To change an existing answer (say, the repo went public), pass it with `-d` too; the update then also re-renders everything that answer controls.
 
+### Go
+
+- **Raise the Go floor** with `-d go_version=1.N`, which rewrites `go.mod`'s `go` line and CI's version list together, then run `go mod tidy`. Never edit `go.mod`'s `go` line alone: CI's first leg runs that exact floor with `GOTOOLCHAIN=local` and fails.
+- **v2 and later:** follow the generated `CONTRIBUTING.md`, "Releasing a new major version" (`-d go_module=<path>/v2`, then rewrite the imports).
+
 ### Changing `languages`, especially to `[]`
 
 Copier deletes every file the old answers rendered and the new ones don't, even when the repo has rewritten it. Moving a repo to a baseline (`languages: []`) therefore deletes its `package.json` or `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `docs/dependencies.md`, `docs/runbooks/` and `.claude/rules/<language>.md`. Right after the update, list the deletions and restore the project's own files:
@@ -56,7 +61,7 @@ For each conflict, understand both sides before choosing:
 - The repo side is usually a deliberate local change (an extra CI job, a project-specific ignore). Keep it too; combine rather than pick one.
 - If a local change and a template change contradict each other (for example the template now forbids something the repo relies on), ask the user. If they keep the local way, suggest an ADR in `docs/decisions/` so the next update's reviewer knows it's on purpose.
 
-Lockfiles: don't hand-merge them. Take one side and regenerate with the package manager (`uv lock`, `pnpm install --lockfile-only`, `cargo generate-lockfile`).
+Lockfiles: don't hand-merge them. Take one side and regenerate with the package manager (`uv lock`, `pnpm install --lockfile-only`, `cargo generate-lockfile`, `go mod tidy` for `go.sum`).
 
 ## 5. Verify and open a PR
 

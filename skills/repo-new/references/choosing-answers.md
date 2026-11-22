@@ -25,7 +25,7 @@ The questions themselves (names, types, choices, defaults, validators) live in `
 
 ## Shape
 
-**`languages`** (multiselect: `python`, `typescript`, `rust`). One language puts its files at the repo root; several put each in its own folder (`python/`, `typescript/`, `rust/`) with one shared CI, pre-commit and docs set. Infer from what the user says they are building; ask only when it is unclear.
+**`languages`** (multiselect: `python`, `typescript`, `rust`, `go`). One language puts its files at the repo root; several put each in its own folder (`python/`, `typescript/`, `rust/`, `go/`) with one shared CI, pre-commit and docs set. Infer from what the user says they are building; ask only when it is unclear. Pick `go` for a binary-shaped app: an agent CLI, an MCP server or a service.
 
 **Empty `languages` makes a baseline repo.** Pick none when the repo keeps its own stack (Bun, Poetry, pip, conda, notebooks) and should not be moved onto the template's. It then gets security scanning, Dependabot, the merge gate, `ci-local.yml`, agent config, `SECURITY.md` and the GitHub setup script, and nothing else: no language folders, no `release.yml` or release-please config, no `CHANGELOG.md`, `README.md`, `CONTRIBUTING.md`, `docs/slo.md`, `docs/runbooks/` or `docs/dependencies.md`. The template doesn't release a baseline repo, so `publishes` isn't asked. On the command line pass `-d languages='[]'`. Promotion later is an answer change: add the language and run `copier update`.
 
@@ -42,7 +42,7 @@ The questions themselves (names, types, choices, defaults, validators) live in `
 
 **`agentic`** (bool, default true). Yes if the app calls an LLM or runs agents. Adds the OWASP LLM / Agentic Top 10 sections to the threat model, `docs/agent-policy.md`, an Inspect AI `evals/` suite and the evals workflow (mock model on PRs, real model nightly, which needs a spend-capped API key). Say no for plain libraries and services, otherwise they carry a nightly job that needs a secret.
 
-**`publishes`** (bool, default false). Yes only if packages go to PyPI / npm / crates.io. Adds OIDC trusted-publishing jobs, attestations, immutable releases and `docs/verify.md`. Releases (release-please, changelog, SBOM) happen either way.
+**`publishes`** (bool, default false). Yes only if packages go to PyPI / npm / crates.io, or, for Go, binaries go on the GitHub release (there's no registry: the tag is the release, and public modules install from it with `go install` either way). Adds OIDC trusted-publishing jobs, attestations, immutable releases and `docs/verify.md`. Releases (release-please, changelog, SBOM) happen either way.
 
 ## Third-party services
 
@@ -63,6 +63,8 @@ Only asked for the chosen languages. Defaults are sensible; change them only on 
 | `ts_linter` | eslint | or oxlint (faster, fewer rules) |
 | `rust_toolchain` | 1.99.0 | pinned in `rust-toolchain.toml` |
 | `rust_msrv` | 1.97 | `rust-version` in Cargo.toml |
+| `go_version` | 1.26 | Minimum Go, the `go` line in `go.mod`; CI tests every minor from it up to the newest the template knows |
+| `go_module` | `github.com/<owner>/<repo>` (+ `/go` in a multi-language repo) | The module path. A vanity path works, but the template doesn't serve its `go-import` meta tag; the user hosts that |
 
 ## Combinations worth warning about
 
@@ -70,6 +72,7 @@ Only asked for the chosen languages. Defaults are sensible; change them only on 
 - private + `coderabbit`: paid after 14 days.
 - private + `sonarqube-cloud`: limited free plan.
 - `publishes` on a private repo: no attestations or npm provenance; trusted publishing still works.
+- Go on a private repo: `go install` needs `GOPRIVATE` and git credentials, and releases get no attestations or proxy warm.
 - `agentic` = true: someone has to fill in `docs/THREAT_MODEL.md` §5 and `docs/agent-policy.md` before the first agent feature ships.
 
 ## Example answers file

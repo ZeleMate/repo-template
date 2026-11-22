@@ -19,5 +19,17 @@ gh attestation verify <file> --repo [[ github_owner ]]/[[ repo_name ]]
 
 **crates.io:** crates are published with crates.io trusted publishing (short-lived token from GitHub OIDC).
 [% endif %]
+[% if 'go' in languages %]
+
+**Go:** the tag is the release. Each release has binaries for Linux, macOS and Windows (amd64 and arm64) and a `SHA256SUMS` file.
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing   # after downloading a binary and SHA256SUMS
+[% if is_public %]
+gh attestation verify [[ project_slug ]]_linux_amd64 --repo [[ github_owner ]]/[[ repo_name ]]
+[% endif %]
+go install [[ go_module ]]/cmd/[[ project_slug ]]@<version>   # or build from source
+```
+[% endif %]
 
 Each GitHub release also has an SBOM (SPDX JSON) attached.

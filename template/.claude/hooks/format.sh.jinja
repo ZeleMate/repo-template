@@ -28,5 +28,14 @@ case "$file" in
     rustfmt --edition 2024 "$file" >/dev/null 2>&1
     ;;
 [% endif %]
+[% if 'go' in languages %]
+  *.go)
+    if command -v golangci-lint >/dev/null 2>&1; then
+      golangci-lint fmt --config "$root/[[ go_dir ]]/.golangci.yml" "$file" >/dev/null 2>&1
+    else
+      gofmt -w "$file" >/dev/null 2>&1  # one of the configured formatters, minus import grouping
+    fi
+    ;;
+[% endif %]
 esac
 exit 0

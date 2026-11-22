@@ -1,0 +1,46 @@
+// Command [[ project_slug ]] is the entry point of [[ project_name ]]. Keep it a thin shim over internal/.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"runtime/debug"
+
+	"[[ go_module ]]/internal/greeting"
+)
+
+// version is stamped by release builds with -ldflags "-X main.version=<version>".
+// A `go install …@<version>` build isn't stamped; versionOf falls back to its build info.
+var version = "dev"
+
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// run is main without the process exit, so tests can call it. It returns the exit code.
+func run(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("[[ project_slug ]]", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	showVersion := flags.Bool("version", false, "print the version and exit")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
+	out := greeting.Greet("world")
+	if *showVersion {
+		info, ok := debug.ReadBuildInfo()
+		out = versionOf(version, info, ok)
+	}
+	if _, err := fmt.Fprintln(stdout, out); err != nil {
+		return 1
+	}
+	return 0
+}
+
+// versionOf returns the stamped version or, when there is none, the module version Go
+// records in a binary built with `go install`. Release builds record "(devel)" there.
+func versionOf(stamped string, info *debug.BuildInfo, ok bool) string {
+	if stamped == "dev" && ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return stamped
+}

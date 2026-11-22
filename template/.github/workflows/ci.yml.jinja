@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   repo-lint:
-    uses: ZeleMate/workflows/.github/workflows/repo-lint.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
+    uses: ZeleMate/workflows/.github/workflows/repo-lint.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
     permissions:
       contents: read
 [% if 'python' in languages %]
@@ -25,7 +25,7 @@ jobs:
 [% set py_lo = python_version.split('.')[1] | int %]
 [% set py_hi = (python_max_version.split('.')[1] | int) if python_max_version else ([py_lo, 14] | max) %]
   python:
-    uses: ZeleMate/workflows/.github/workflows/python.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
+    uses: ZeleMate/workflows/.github/workflows/python.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
     permissions:
       contents: read
     with:
@@ -37,7 +37,7 @@ jobs:
 [% if 'typescript' in languages %]
 
   typescript:
-    uses: ZeleMate/workflows/.github/workflows/typescript.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
+    uses: ZeleMate/workflows/.github/workflows/typescript.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
     permissions:
       contents: read
     with:
@@ -47,15 +47,30 @@ jobs:
 [% if 'rust' in languages %]
 
   rust:
-    uses: ZeleMate/workflows/.github/workflows/rust.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
+    uses: ZeleMate/workflows/.github/workflows/rust.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
     permissions:
       contents: read
     with:
       working-directory: [[ rs_dir ]]
 [% endif %]
+[% if 'go' in languages %]
+
+[% from 'includes/go.jinja' import go_newest %]
+[% set go_lo = go_version.split('.')[1] | int %]
+[% set go_hi = [go_lo, go_newest] | max %]
+  go:
+    uses: ZeleMate/workflows/.github/workflows/go.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
+    permissions:
+      contents: read
+    with:
+      # Every minor from go_version (go.mod's floor) up to the newest the template knows.
+      # Move the floor with `copier update -d go_version=1.N`, never by editing go.mod alone.
+      go-versions: '[[ '[' ]][% for m in range(go_lo, go_hi + 1) %]"1.[[ m ]]"[% if not loop.last %], [% endif %][% endfor %][[ ']' ]]'
+      working-directory: [[ go_dir ]]
+[% endif %]
 
   security:
-    uses: ZeleMate/workflows/.github/workflows/security.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
+    uses: ZeleMate/workflows/.github/workflows/security.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
     permissions:
       contents: read
     with:

@@ -42,7 +42,7 @@ The script ends by printing the manual checklist from `docs/SETUP.md`. Go throug
 - **Secrets are typed by the user, not by you.** The generated `.claude/settings.json` denies `gh secret *` to Claude on purpose, so a token never passes through the conversation or the transcript. Give the command and let the user run it in their terminal.
 - **Which secrets, and how to create each:** the repo's `.github/secret-requirements.json` lists them, and `docs/SETUP.md` has the step for each one. Don't work them out from the answers yourself. A repo that won't release can run `gh workflow disable release.yml` instead of creating `RELEASE_PLEASE_TOKEN`; the audit then doesn't ask for it.
 - **SonarQube Cloud:** install its GitHub App and import the repo. Leave Automatic Analysis on; it needs no CI job or `SONAR_TOKEN`.
-- **Trusted publishing:** for a brand-new package use the registry's "pending publisher" form, with workflow `release.yml` and (if public or Pro) environment `release`.
+- **Trusted publishing** (Python, TypeScript and Rust only; Go has no registry, and its binaries go on the GitHub release with the workflow's own token): for a brand-new package use the registry's "pending publisher" form, with workflow `release.yml` and (if public or Pro) environment `release`.
 - **Agentic apps:** `docs/THREAT_MODEL.md` §5 plus `docs/agent-policy.md` filled in before the first agent feature ships.
 - **Malware alerts** are a UI-only toggle under Settings → Advanced Security.
 - `uvx pre-commit install` in the local clone.

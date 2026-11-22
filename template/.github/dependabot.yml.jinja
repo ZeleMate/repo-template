@@ -79,9 +79,25 @@ updates:
     commit-message:
       prefix: deps
 [% endif %]
+[% if 'go' in languages %]
+
+  # Never raises go.mod's go line: the floor moves only with `copier update -d go_version=1.N`.
+  - package-ecosystem: gomod
+    directory: /[[ '' if go_dir == '.' else go_dir ]]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      gomod-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+[% endif %]
 [% set managed_root = [] %]
 [% if not multi_lang %]
-[% for l in languages %][% set _ = managed_root.append({'python': 'uv', 'typescript': 'npm', 'rust': 'cargo'}[l]) %][% endfor %]
+[% for l in languages %][% set _ = managed_root.append({'python': 'uv', 'typescript': 'npm', 'rust': 'cargo', 'go': 'gomod'}[l]) %][% endfor %]
 [% endif %]
 [% for eco in extra_ecosystems if eco not in managed_root %]
 

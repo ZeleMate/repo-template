@@ -45,6 +45,13 @@ coverage/
 # Rust
 target/
 [% endif %]
+[% if 'go' in languages %]
+
+# Go (release binaries are built only in CI)
+coverage.out
+*.test
+/[% if go_dir != '.' %][[ go_dir ]]/[% endif %][[ project_slug ]]
+[% endif %]
 [% if agentic %]
 
 # Eval logs

@@ -1,0 +1,17 @@
+# golangci-lint v2. CI runs `golangci-lint fmt --diff` and `golangci-lint run` with this file.
+version: "2"
+
+linters:
+  default: standard  # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - errorlint
+    - gosec  # agent code shells out, reads paths and calls HTTP
+  settings:
+    gosec:
+      excludes:
+        - G104  # unhandled errors: errcheck already reports them
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

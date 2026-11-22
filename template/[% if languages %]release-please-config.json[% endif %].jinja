@@ -5,10 +5,12 @@
   "force-tag-creation": true,
   "packages": {
 [% for l in languages %]
-    "[[ {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir}[l] ]]": {
-      "release-type": "[[ {'python': 'python', 'typescript': 'node', 'rust': 'rust'}[l] ]]",
+    "[[ {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir, 'go': go_dir}[l] ]]": {
+      "release-type": "[[ {'python': 'python', 'typescript': 'node', 'rust': 'rust', 'go': 'go'}[l] ]]",
       "package-name": "[[ project_slug ]]"[% if multi_lang %],
-      "component": "[[ l ]]"[% endif %][% if l == 'python' %],
+      "component": "[[ l ]]"[% endif %][% if l == 'go' %],
+      "bump-minor-pre-major": true[% if multi_lang %],
+      "tag-separator": "/"[% endif %][% endif %][% if l == 'python' %],
       "extra-files": [
         {
           "type": "toml",

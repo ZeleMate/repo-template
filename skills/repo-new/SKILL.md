@@ -1,6 +1,6 @@
 ---
 name: repo-new
-description: Create a new repository with a production baseline from the repo-template Copier template — SHA-pinned GitHub Actions CI with a single ci-ok check, Semgrep/OSV-Scanner/Gitleaks/CodeQL, Dependabot with cooldowns, release-please releases, optional trusted publishing, Claude/CodeRabbit AI review, AGENTS.md + Claude Code config, threat model, ADRs and (for LLM apps) agent policy and evals. Python, TypeScript and Rust, alone or together. Use this whenever someone wants to start, scaffold, bootstrap or init a new project/repo/service/library/package/agent app "properly", "production-ready", "with CI and security set up", or "from our template", even if they don't mention Copier or the template by name.
+description: Create a new repository with a production baseline from the repo-template Copier template — SHA-pinned GitHub Actions CI with a single ci-ok check, Semgrep/OSV-Scanner/Gitleaks/CodeQL, Dependabot with cooldowns, release-please releases, optional trusted publishing, Claude/CodeRabbit AI review, AGENTS.md + Claude Code config, threat model, ADRs and (for LLM apps) agent policy and evals. Python, TypeScript, Rust and Go, alone or together. Use this whenever someone wants to start, scaffold, bootstrap or init a new project/repo/service/library/package/agent app "properly", "production-ready", "with CI and security set up", or "from our template", even if they don't mention Copier or the template by name.
 ---
 
 # New repo from the template
@@ -12,10 +12,10 @@ The plugin root (two levels above this skill's base directory) is the template i
 ## 1. Check prerequisites
 
 ```bash
-for t in git uv gh pnpm node cargo; do printf '%-6s ' $t; command -v $t >/dev/null && echo ok || echo missing; done
+for t in git uv gh pnpm node cargo go; do printf '%-6s ' $t; command -v $t >/dev/null && echo ok || echo missing; done
 ```
 
-`uv` is required (Copier runs through `uvx` and the post-generation tasks call `uv lock`). `pnpm` and `node` are required only for TypeScript, `cargo` only for Rust (generation still works without it; the lockfile is made later). `gh` is needed in the next skill, not here. Tell the user what's missing and how to install it rather than working around it.
+`uv` is required (Copier runs through `uvx` and the post-generation tasks call `uv lock`). `pnpm` and `node` are required only for TypeScript, `cargo` only for Rust (generation still works without it; the lockfile is made later), and `go` is optional for Go (generating needs no Go; verify skips the Go checks without it, and runs golangci-lint only if that is installed too). `gh` is needed in the next skill, not here. Tell the user what's missing and how to install it rather than working around it.
 
 ## 2. Gather the answers
 
@@ -46,7 +46,7 @@ uvx copier copy --trust --defaults --data-file <answers.yml> --vcs-ref <tag> <so
 bash <this skill's base directory>/scripts/verify-generated.sh <destination>
 ```
 
-It reads `.copier-answers.yml` and runs what CI runs: actionlint and zizmor (if installed), JSON validity, pre-commit, a check for unrendered `[[ ]]`/`[% %]` tags, the mock evals for agentic apps, then per language uv/ruff/pyright-or-mypy/pytest, pnpm/prettier/lint/typecheck/vitest/build, cargo fmt/clippy/test. Before `git init`, pre-commit is skipped; that's expected. If it prints a note about `author_email`, pass it on: that address is where vulnerability reports go.
+It reads `.copier-answers.yml` and runs what CI runs: actionlint and zizmor (if installed), JSON validity, pre-commit, a check for unrendered `[[ ]]`/`[% %]` tags, the mock evals for agentic apps, then per language uv/ruff/pyright-or-mypy/pytest, pnpm/prettier/lint/typecheck/vitest/build, cargo fmt/clippy/test, and `go mod tidy -diff`/`go vet`/`go build`/`go test -race` plus golangci-lint fmt and run (if installed). Before `git init`, pre-commit is skipped; that's expected. If it prints a note about `author_email`, pass it on: that address is where vulnerability reports go.
 
 A failure here is a template bug or a missing tool, not something to patch in the generated repo by hand. Report the failing check with its output; if it's a template bug, say so and suggest fixing it in the template (the `repo-template-maintain` skill) so every future repo gets the fix.
 
