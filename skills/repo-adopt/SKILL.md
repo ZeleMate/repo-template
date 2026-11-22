@@ -15,7 +15,7 @@ Work on a fresh branch (`git switch -c chore/adopt-repo-template`); the repo mus
 
 Collect what the answers depend on, and what will collide:
 
-- Languages and layout: where `pyproject.toml`, `package.json`, `Cargo.toml` are. The template puts a single language at the root and several under `python/`, `typescript/`, `rust/`. If the repo's layout differs, don't move code to fit; you will map paths instead (step 4).
+- Languages and layout: where `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod` are. The template puts a single language at the root and several under `python/`, `typescript/`, `rust/`, `go/`. If the repo's layout differs, don't move code to fit; you will map paths instead (step 4).
 - Package managers and tools in use: Poetry/pip vs uv, npm/yarn vs pnpm, mypy vs pyright, ESLint vs Oxlint, Jest vs Vitest.
 - Existing CI (`.github/workflows/`), pre-commit config, Dependabot/Renovate, release tooling, `AGENTS.md`/`CLAUDE.md`/`.claude/`, licence, SECURITY.md, docs.
 - GitHub facts: `gh repo view --json visibility,owner,name`.
@@ -37,7 +37,7 @@ Don't rewrite history. In a public repo the value is already exposed, so only ro
 
 ## 2. Agree the answers and the scope
 
-Draft the answers from the survey (visibility, owner and slug come from GitHub; author from git config). Set `repo_name` to the repo's exact GitHub name when it has capitals, dots or underscores the slug can't hold (`LegalQA_v2`), and `python_max_version` when the repo's `requires-python` has an upper bound or a dependency doesn't support the newest Python yet. Then talk through, with the user, every place where the template's choice differs from what the repo does today. For each, the options are adopt the template's tool (migrate), or keep theirs and adapt the template file. Recommend, don't decide:
+Draft the answers from the survey (visibility, owner and slug come from GitHub; author from git config). Set `repo_name` to the repo's exact GitHub name when it has capitals, dots or underscores the slug can't hold (`LegalQA_v2`), and `python_max_version` when the repo's `requires-python` has an upper bound or a dependency doesn't support the newest Python yet. For Go, `go_module` is the existing `module` line of `go.mod`, copied exactly (any difference breaks every import), and `go_version` is its `go` line's `1.N`. Then talk through, with the user, every place where the template's choice differs from what the repo does today. For each, the options are adopt the template's tool (migrate), or keep theirs and adapt the template file. Recommend, don't decide:
 
 - A tool swap that's mostly config (mypy → pyright, adding Ruff, npm → pnpm) is usually worth it.
 - A swap that touches lots of code or habits (Poetry → uv with many extras, Jest → Vitest with heavy mocks) can be its own follow-up PR; keep their tool and wire it into the template's CI job for now.
@@ -63,9 +63,16 @@ Walk the rendered tree (`find <scratch>/rendered -type f -not -path '*/.venv/*' 
 | Doesn't exist in the repo (most of `.github/`, `docs/`, `.claude/`, `AGENTS.md`, `REVIEW.md`, `SECURITY.md`, `scripts/bootstrap-github.sh`, `.editorconfig`) | Copy it in. |
 | Exists and is pure config (`.pre-commit-config.yaml`, `.gitignore`, `dependabot.yml`, linter configs) | Merge: template content as the base, plus the repo's extra entries. In `.gitignore`, keep the template's closing `!` block (release-please files, `.github/tools/.python-version`) last, below the repo's entries, or a broad rule like `.python-version` or `/*.json` hides them. Before committing, run `git status --ignored` and check that no rendered file is ignored. |
 | Exists and is the project's own (`README.md`, `pyproject.toml`/`package.json`/`Cargo.toml`, source, tests, `LICENSE`, `CHANGELOG.md`) | Keep theirs; port only the template's tool settings into it (e.g. the `[tool.ruff]`, `[tool.pyright]`, coverage and `exclude-newer` sections; the package.json scripts CI calls: `format:check`, `lint`, `typecheck`, `test:coverage`, `build`). |
-| The template's placeholder code (`src/<pkg>/__init__.py`, `src/index.ts`, `src/lib.rs`, `tests/test_smoke.py`, `test/index.test.ts`) | Skip. |
+| The template's placeholder code (`src/<pkg>/__init__.py`, `src/index.ts`, `src/lib.rs`, `tests/test_smoke.py`, `test/index.test.ts`, `cmd/<slug>/`, `internal/greeting/`) | Skip. |
 | `.github/workflows/ci-local.yml` | The repo owns this file; the template never updates it. Move the repo's existing CI jobs into it as jobs of a reusable workflow (`on: workflow_call`), replacing the no-op job. Keep every action pinned to a full SHA, give each job its own `permissions`, and make sure no job needs a secret (Dependabot PRs get none). Delete the old workflow those jobs came from, so they don't run twice. `ci.yml` calls it as `uses: $/.github/workflows/ci-local.yml`: `$/` is GitHub's self-repository syntax, which zizmor's `self-repository` audit requires. Don't change it to `./`. |
 | Existing CI workflows | Replace with the template's `ci.yml`, `security.yml`, `release.yml`, then re-add any job the template lacks and add it to `ci-ok`'s `needs`. Keep every action pinned to a full SHA with a version comment. The template's `ci.yml` only calls reusable workflows in `ZeleMate/workflows`; if the repo keeps a toolchain those don't support (Bun, Poetry, Jest), drop that language's call, keep the repo's own job in `ci.yml`, and still call `security.yml` and `repo-lint.yml`. |
+
+### Go
+
+- **`.golangci.yml`** is merged like other config. If theirs is v1, run `golangci-lint migrate` first, then combine their linters and settings with the template's. Keep the template's `gofmt` and `goimports` formatters: the `golangci-lint-fmt` hook and CI's format check depend on them.
+- **A `Makefile`** is kept. Tell the user that CodeQL's Go autobuild runs `make` first in public repos, so they should check the first CodeQL run.
+- **GoReleaser:** move to the template's `publish-go` job by default. Keep GoReleaser only for what `publish-go` lacks (archives, Homebrew taps, Docker images, signing): then answer `publishes: false` and let their workflow run from the tag. That works only in a single-language repo with root `v` tags, because GoReleaser's open-source edition can't release from `go/vX.Y.Z` tags.
+- **Release history:** set the Go entry in `.release-please-manifest.json` to the latest released version, not `0.1.0`. Otherwise a `/v3` module would next be tagged `v0.2.0`, which Go rejects, and `go-major-version` doesn't check majors 0 and 1. The tag prefix must match the module's folder: when Go stays at the root in a multi-language repo, set `"include-component-in-tag": false` on the Go package. Existing tags stay as they are.
 
 If the layout differs from the template's (say Python under `backend/`), fix paths in the copied files: the `working-directory` inputs in `ci.yml`, the `uv run --project` / `pnpm --dir` paths in `.claude/hooks/format.sh`, and `paths` in `release-please-config.json`.
 

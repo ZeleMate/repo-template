@@ -72,6 +72,7 @@ languages:
     Python: python
     TypeScript: typescript
     Rust: rust
+    Go: go
   default: [python]
 
 extra_ecosystems:
@@ -115,7 +116,7 @@ agentic:
 
 publishes:
   type: bool
-  help: Will you publish packages to PyPI / npm / crates.io?
+  help: Will you publish releases (packages to PyPI / npm / crates.io, Go binaries on GitHub releases)?
   default: false
   # The template only releases managed languages; a baseline repo keeps its own release workflow.
   when: "[[ languages | length > 0 ]]"
@@ -196,6 +197,26 @@ rust_msrv:
   default: "1.97"
   when: "[[ 'rust' in languages ]]"
 
+go_version:
+  type: str
+  help: >-
+    Minimum Go version (the go line in go.mod). CI tests every minor from here up to the
+    newest the template knows. Raise it later with `copier update -d go_version=1.N`
+  default: "1.26"
+  when: "[[ 'go' in languages ]]"
+  validator: >-
+    [% set p = go_version.split('.') %][% if p | length != 2 or p[0] != '1' or not p[1].isdigit() %]Use 1.N, e.g. 1.26[% endif %]
+
+go_module:
+  type: str
+  help: >-
+    Go module path (the module line in go.mod). A vanity path or another host works too;
+    for v2 and later it ends in /vN
+  default: "github.com/[[ github_owner ]]/[[ repo_name ]][% if languages | length > 1 %]/go[% endif %]"
+  when: "[[ 'go' in languages ]]"
+  validator: >-
+    [% if go_module.split() | length != 1 or go_module != go_module.strip() or '.' not in go_module.split('/')[0] %]Use a module path like github.com/owner/repo: no spaces, and a host with a dot first[% endif %]
+
 # ---------------------------------------------------------------- computed (not asked)
 multi_lang:
   type: bool
@@ -212,6 +233,10 @@ ts_dir:
 rs_dir:
   type: str
   default: "[% if languages | length > 1 %]rust[% else %].[% endif %]"
+  when: false
+go_dir:
+  type: str
+  default: "[% if languages | length > 1 %]go[% else %].[% endif %]"
   when: false
 baseline:
   type: bool

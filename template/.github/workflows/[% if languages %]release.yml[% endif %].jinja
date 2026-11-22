@@ -29,7 +29,7 @@ jobs:
     outputs:
       any: ${{ steps.rp.outputs.releases_created }}
 [% for l in languages %]
-[% set d = {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir}[l] %]
+[% set d = {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir, 'go': go_dir}[l] %]
       [[ l ]]: ${{ steps.rp.outputs['[[ out(d, 'release_created') ]]'] }}
       [[ l ]]_tag: ${{ steps.rp.outputs['[[ out(d, 'tag_name') ]]'] }}
 [% endfor %]
@@ -149,11 +149,84 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 [% endif %]
+[% if 'go' in languages %]
+[% from 'includes/go.jinja' import go_newest %]
+
+  # Go has no registry: the tag is the release, and proxy.golang.org fetches it on first use.
+  # This job adds cross-compiled binaries and SHA256SUMS to the draft release.
+  publish-go:
+    needs: release-please
+    if: needs.release-please.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+[% if has_governance %]
+    environment: release
+[% endif %]
+    permissions:
+      contents: write  # gh release upload into the draft
+[% if is_public %]
+      id-token: write
+      attestations: write
+[% endif %]
+    defaults:
+      run:
+        working-directory: [[ go_dir ]]
+    env:
+      TAG: ${{ needs.release-please.outputs.go_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      # The newest Go CI tests, at its latest patch, so the binaries carry a current standard library.
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
+        with:
+          go-version: "1.[[ go_newest ]]"
+          check-latest: true
+          cache: false
+      - name: Build the binaries and SHA256SUMS
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          version="${TAG##*/}"  # go/v1.2.3 -> v1.2.3
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            os="${target%/*}"; arch="${target#*/}"; ext=""
+            [ "$os" = windows ] && ext=.exe
+            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags "-s -w -X main.version=$version" \
+              -o "dist/[[ project_slug ]]_${os}_${arch}${ext}" ./cmd/[[ project_slug ]]
+          done
+          (cd dist && sha256sum -- [[ project_slug ]]_* > SHA256SUMS)
+[% if is_public %]
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
+        with:
+          subject-checksums: [[ go_dir ]]/dist/SHA256SUMS
+[% endif %]
+      - name: Upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+[% if is_public %]
+      # Optional: the proxy would fetch the version on first use anyway. Never in a private repo,
+      # where the proxy can't fetch it and the request would leak the module path.
+      - name: Warm the Go module proxy
+        env:
+          GOPROXY: https://proxy.golang.org
+          MODULE: [[ go_module ]]
+        working-directory: ${{ runner.temp }}
+        run: go list -m "$MODULE@${TAG##*/}" || echo "::warning::proxy.golang.org could not fetch $MODULE@${TAG##*/} yet"
+[% endif %]
+[% endif %]
 [% endif %]
 
   sbom:
+[% if publishes and 'go' in languages %]
+    # Waits for the Go binaries, so a failed Go build leaves the release a draft.
+    needs: [release-please, publish-go]
+    if: ${{ !cancelled() && needs.release-please.outputs.any == 'true' && needs.publish-go.result != 'failure' }}
+[% else %]
     needs: release-please
     if: needs.release-please.outputs.any == 'true'
+[% endif %]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

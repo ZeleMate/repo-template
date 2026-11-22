@@ -1,0 +1,41 @@
+#!/bin/sh
+# pre-commit hook `go-major-version`: Go rejects a v2+ tag unless the module path ends in /vN.
+# Fails when the Go package's version in .release-please-manifest.json has a major of 2 or more
+# and go.mod's module line doesn't end in /vN with N at least that major. N may be ahead, so the
+# PR that prepares a major bump passes. Majors 0 and 1 have no suffix and are never checked.
+# Written by the repo template; see CONTRIBUTING.md, "Releasing a new major version".
+set -eu
+
+manifest=.release-please-manifest.json
+gomod=[[ 'go.mod' if go_dir == '.' else go_dir ~ '/go.mod' ]]
+key='"[[ go_dir ]]"'
+[% raw %]
+
+line=$(grep -F "$key:" "$manifest" || true)
+version=$(printf '%s\n' "${line#*"$key"}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+if [ -z "$version" ]; then
+  echo "go-major-version: no version for $key in $manifest" >&2
+  exit 1
+fi
+major=${version%%.*}
+[ "$major" -ge 2 ] || exit 0
+
+module=$(grep -E '^module[[:space:]]' "$gomod" || true)
+module=${module#module}
+module=$(printf '%s' "$module" | grep -oE '[^[:space:]"]+' || true)
+suffix=${module##*/}
+case "$suffix" in
+  v[0-9]*) n=${suffix#v} ;;
+  *) n=0 ;;
+esac
+case "$n" in
+  '' | *[!0-9]*) n=0 ;;
+esac
+
+if [ "$n" -lt "$major" ]; then
+  echo "go-major-version: $manifest releases the Go module at $version, but its path in $gomod" >&2
+  echo "  ($module) doesn't end in /v$major, so Go would reject the v$major tag." >&2
+  echo "  Follow CONTRIBUTING.md, \"Releasing a new major version\"." >&2
+  exit 1
+fi
+[% endraw %]

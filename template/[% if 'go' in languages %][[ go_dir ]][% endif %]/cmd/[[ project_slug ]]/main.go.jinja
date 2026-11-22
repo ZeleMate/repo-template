@@ -1,0 +1,34 @@
+// Command [[ project_slug ]] is the entry point of [[ project_name ]]. Keep it a thin shim over internal/.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io"
+	"os"
+
+	"[[ go_module ]]/internal/greeting"
+)
+
+// version is stamped by release builds with -ldflags "-X main.version=<version>".
+var version = "dev"
+
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// run is main without the process exit, so tests can call it. It returns the exit code.
+func run(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("[[ project_slug ]]", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	showVersion := flags.Bool("version", false, "print the version and exit")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
+	out := greeting.Greet("world")
+	if *showVersion {
+		out = version
+	}
+	if _, err := fmt.Fprintln(stdout, out); err != nil {
+		return 1
+	}
+	return 0
+}

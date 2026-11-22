@@ -1,0 +1,14 @@
+---
+paths:
+  - "**/*.go"
+---
+
+# Go rules
+
+- Return errors; wrap them with `fmt.Errorf("…: %w", err)` and compare with `errors.Is`/`errors.As`. No `panic` outside `main`.
+- `context.Context` is the first parameter of anything that does I/O, and is never stored in a struct.
+- Every goroutine has a way to stop: a context or a closed channel.
+- Run commands with `os/exec` and an argument list, never `sh -c` with input built from strings (gosec G204).
+- New code goes under `internal/`; `cmd/[[ project_slug ]]/main.go` stays a thin shim.
+- Tests are table-driven with `t.Run`, parsers get fuzz tests, and everything must pass under `go test -race`.
+- Fix lint findings rather than adding `//nolint`; any `//nolint:<linter>` needs a reason comment.

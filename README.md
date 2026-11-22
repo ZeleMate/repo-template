@@ -1,6 +1,6 @@
 # repo-template
 
-A [Copier](https://copier.readthedocs.io/) template that gives every new repo the same production baseline: CI, security scanning, dependency hygiene, releases, AI review, coding-agent config, and the docs a production codebase needs. It covers Python, TypeScript and Rust, alone or together.
+A [Copier](https://copier.readthedocs.io/) template that gives every new repo the same production baseline: CI, security scanning, dependency hygiene, releases, AI review, coding-agent config, and the docs a production codebase needs. It covers Python, TypeScript, Rust and Go, alone or together.
 
 The choices come from the research report *Repo standards for agentic stacks*. Each one is backed by a standard (OpenSSF, NIST SSDF, SLSA, OWASP) or by what major reference projects actually run.
 
@@ -52,16 +52,16 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 
 | Question | Effect |
 |---|---|
-| Languages (Python / TypeScript / Rust, or none) | One language: files at the root. Several: `python/`, `typescript/`, `rust/` folders. None: a baseline repo that keeps its own stack and gets security scanning, Dependabot, the merge gate and agent config only ([ADR 0002](docs/adr/0002-baseline-repos-with-no-managed-language.md)) |
+| Languages (Python / TypeScript / Rust / Go, or none) | One language: files at the root. Several: `python/`, `typescript/`, `rust/`, `go/` folders. None: a baseline repo that keeps its own stack and gets security scanning, Dependabot, the merge gate and agent config only ([ADR 0002](docs/adr/0002-baseline-repos-with-no-managed-language.md)) |
 | Extra Dependabot ecosystems | Ecosystems at the repo root that the managed languages don't cover (pip, uv, npm, Bun, Cargo, Go modules, Docker) |
 | Visibility (public / private) | Public turns on GitHub's free CodeQL, secret scanning, private vuln reporting and attestations |
 | GitHub plan (free / pro) | Pro makes rulesets and environments work on private repos |
 | Licence | MIT / Apache-2.0 (with REUSE metadata) or proprietary |
 | Agentic app? | Adds the agentic threat model, `docs/agent-policy.md`, Inspect AI evals and the evals workflow |
-| Publishes packages? | Adds trusted-publishing jobs (PyPI / npm / crates.io), attestations, immutable releases |
+| Publishes releases? | Adds trusted-publishing jobs (PyPI / npm / crates.io) and, for Go, cross-compiled binaries on the GitHub release; attestations, immutable releases |
 | AI reviewers | Claude Code Action and/or CodeRabbit |
 | Quality platform | none / SonarQube Cloud |
-| Toolchain details | Python version and type checker (pyright/mypy), Node LTS, ESLint/Oxlint, Rust toolchain and MSRV |
+| Toolchain details | Python version and type checker (pyright/mypy), Node LTS, ESLint/Oxlint, Rust toolchain and MSRV, minimum Go version and Go module path |
 
 ## What you get, and why
 
@@ -72,12 +72,12 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 | Workflow linting | zizmor + actionlint (pre-commit and CI) | — |
 | Static analysis (security) | **Public:** CodeQL default setup. **Private:** Semgrep CE in CI, because CodeQL needs a paid add-on there | Semgrep AppSec Platform free tier (10 repos, cross-file); Opengrep (LGPL fork) |
 | Code quality dashboard | SonarQube Cloud through its GitHub App (Automatic Analysis: no CI job or CI secret), opt-in. On by default for public repos, where the open-source plan is free and complete | Qlty (free tier); SonarQube Server Community Build (self-hosted) |
-| Dependency vulns | OSV-Scanner (checksum-verified binary) + Dependabot alerts; `cargo deny` for Rust | Snyk / Socket free tiers |
+| Dependency vulns | OSV-Scanner (checksum-verified binary) + Dependabot alerts; `cargo deny` for Rust; govulncheck for Go | Snyk / Socket free tiers |
 | Malicious packages | Dependabot malware alerts (manual toggle) + install cooldowns | Socket GitHub App |
 | Secrets | Gitleaks (pre-commit + full-history CI scan); GitHub push protection on public repos | TruffleHog, GitGuardian |
 | Dependency updates | Dependabot, grouped weekly, 7-day cooldown (14 for majors) | Renovate (`minimumReleaseAge`) |
 | Releases | release-please from Conventional Commit PR titles; SBOM (SPDX) attached | changesets for pnpm monorepos |
-| Publishing | OIDC trusted publishing: PyPI (PEP 740 attestations), npm (provenance on public), crates.io | — |
+| Publishing | OIDC trusted publishing: PyPI (PEP 740 attestations), npm (provenance on public), crates.io. Go: the tag is the release; binaries with `SHA256SUMS` (and attestations on public) on the GitHub release | — |
 | AI review | Claude Code Action (runs on your Claude subscription; posts with the job's own token, so no Claude GitHub App) and/or CodeRabbit (free on public repos) | GitHub Copilot code review (enable via ruleset; billed per review); Qodo PR-Agent (MIT, your own API key) |
 | Spec conformance | **Custom:** `spec-review` skill + read-only `code-reviewer` skill (a forked subagent) + `REVIEW.md` | Nothing on the market does this by default |
 | Agent config | `AGENTS.md` (canonical) + `CLAUDE.md` importing it; `.claude/settings.json` deny rules + formatter hook | — |
@@ -85,6 +85,7 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 | Python | uv + `uv.lock` (7-day `exclude-newer`), Ruff, pyright/mypy strict, pytest + Hypothesis, coverage | — |
 | TypeScript | pnpm (7-day `minimumReleaseAge`, `trustPolicy`), ESLint + typescript-eslint strict / Oxlint, Prettier, Vitest + fast-check | — |
 | Rust | pinned `rust-toolchain.toml`, clippy `-D warnings`, nextest, cargo-deny, proptest, `unsafe` forbidden | — |
+| Go | every minor from `go.mod`'s floor to the newest, golangci-lint v2 (standard + gosec, errorlint), `go test -race`, native fuzz tests, govulncheck | GoReleaser (single-language repos only) |
 | Coverage | 80% overall (Badge silver), **90% on changed lines** in PRs (diff-cover) | Codecov |
 | Docs | MADR ADRs (incl. the solo-review exception), threat model, SECURITY.md (OpenSSF template), dependency and secrets policy, SLOs, runbooks | — |
 

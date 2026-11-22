@@ -57,7 +57,7 @@ repos:
     hooks:
       - id: reuse
 [% endif %]
-[% if 'typescript' in languages or 'rust' in languages %]
+[% if 'typescript' in languages or 'rust' in languages or 'go' in languages %]
 
   # Local hooks use the project's own pinned toolchains.
   - repo: local
@@ -75,6 +75,24 @@ repos:
         entry: cargo fmt --manifest-path [[ rs_dir ]]/Cargo.toml --
         language: system
         types: [rust]
+        pass_filenames: false
+[% endif %]
+[% if 'go' in languages %]
+      # Formatting only (gofmt + goimports from .golangci.yml); CI runs the full lint.
+      - id: golangci-lint-fmt
+        name: golangci-lint fmt
+        entry: golangci-lint fmt --config [[ go_dir ]]/.golangci.yml
+        language: system
+        types: [go]
+[% if multi_lang %]
+        files: ^[[ go_dir ]]/
+[% endif %]
+      # A release of v2 or later needs the /vN suffix on go.mod's module line first.
+      - id: go-major-version
+        name: go major version matches the module path
+        entry: sh scripts/go-major-version.sh
+        language: system
+        files: ^(\.release-please-manifest\.json|[% if multi_lang %][[ go_dir ]]/[% endif %]go\.mod)$
         pass_filenames: false
 [% endif %]
 [% endif %]

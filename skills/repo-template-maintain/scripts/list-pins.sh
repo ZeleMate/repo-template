@@ -41,12 +41,16 @@ for f in .pre-commit-config.yaml template/.pre-commit-config.yaml.jinja; do
 done
 
 echo "# checksum-verified binaries (VERSION + SHA256 env pairs)"
-echo "#   (Gitleaks and OSV-Scanner are pinned in ZeleMate/workflows, security.yml, since the central workflows)"
+echo "#   (Gitleaks and OSV-Scanner are pinned in ZeleMate/workflows, security.yml, since the central workflows;"
+echo "#    golangci-lint in its go.yml, and govulncheck and gocover-cobertura in its tools/go/go.mod)"
 grep -rhoE '(OSV|GITLEAKS)_VERSION: "[^"]+"' template | sort -u | while read -r line; do
   name=$(cut -d_ -f1 <<<"$line"); ver=$(sed -E 's/.*"([^"]+)"/\1/' <<<"$line")
   case $name in OSV) repo=google/osv-scanner ;; GITLEAKS) repo=gitleaks/gitleaks ;; esac
   row binary "$repo" "v$ver" "$(latest "$repo")" "security.yml (update the SHA256 too)"
 done
+# The template's own CI installs golangci-lint at the central go.yml's version.
+ver=$(grep -ohE 'GOLANGCI_LINT_VERSION: "[^"]+"' .github/workflows/ci.yml 2>/dev/null | head -1 | sed -E 's/.*"([^"]+)"/\1/')
+[[ -n "$ver" ]] && row binary golangci/golangci-lint "v$ver" "$(latest golangci/golangci-lint)" ".github/workflows/ci.yml (match central go.yml; update the SHA256 too)"
 
 echo "# tools run by version (uvx tool@version from PyPI, pnpm dlx/npx tool@version from npm)"
 grep -rhoE '(uvx|pnpm dlx|npx) [a-z0-9_-]+@[0-9][0-9.]*' template scripts .github 2>/dev/null | sed 's/pnpm dlx/pnpm-dlx/' | sort -u \
@@ -61,5 +65,11 @@ echo "# toolchain defaults in copier.yml"
 uvx --no-build --quiet --from pyyaml python -c '
 import yaml
 c = yaml.safe_load(open("copier.yml"))
-for k in ("python_version", "node_version", "rust_toolchain", "rust_msrv"):
+for k in ("python_version", "node_version", "rust_toolchain", "rust_msrv", "go_version"):
     print(k, c[k]["default"])' | while read -r key val; do row default "$key" "$val" "-" "copier.yml (check upstream support windows)"; done
+
+# The newest versions CI tests, literals in the templates (a new release isn't tested until they move).
+py=$(grep -oE '\[py_lo, [0-9]+\]' template/.github/workflows/ci.yml.jinja | grep -oE '[0-9]+\]' | tr -d ']')
+row default "newest Python (CI matrix)" "3.$py" "-" "ci.yml.jinja ([py_lo, N])"
+go=$(grep -oE 'set go_newest = [0-9]+' includes/go.jinja | grep -oE '[0-9]+$')
+row default "newest Go (CI matrix, release builds)" "1.$go" "$(curl -fsS 'https://go.dev/dl/?mode=json' 2>/dev/null | jq -r '.[0].version // "?"' | sed -E 's/^go([0-9]+\.[0-9]+).*/\1/')" "includes/go.jinja (move central golangci-lint first)"

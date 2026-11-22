@@ -6,8 +6,8 @@
 #   CENTRAL_DIR=<clone of ZeleMate/workflows>   reuse a clone instead of fetching the pinned SHA
 # Reads .copier-answers.yml to know which languages exist and where.
 # Exits 0 if every check passes, 1 if any fails, 2 if repo-dir has no .copier-answers.yml.
-# Needs: uv, git; pnpm + node for TypeScript; cargo for Rust (skipped without it);
-# actionlint, zizmor and osv-scanner optional (skipped without them).
+# Needs: uv, git; pnpm + node for TypeScript; cargo for Rust and go for Go (each skipped without it);
+# actionlint, zizmor, osv-scanner and golangci-lint optional (skipped without them).
 set -uo pipefail
 
 REPO="$(cd "${1:-.}" && pwd)"
@@ -53,9 +53,15 @@ else
   # pre-commit only sees tracked or staged files, so it stages without committing. Only when $REPO is
   # the top of its own repo: inside another repo (a monorepo, a dotfiles home), `git add -A` would
   # stage the new files into that repo's index.
+  # Skip the hooks CI's repo-lint skips: the default of skip-hooks in the central repo-lint.yml.
+  skip=$(awk '/^ *skip-hooks:/ {f=1} f && /^ *default:/ {print $2; exit}' "$central/.github/workflows/repo-lint.yml" 2>/dev/null)
   top=$(git -C "$REPO" rev-parse --show-toplevel 2>/dev/null || true)
-  if [[ -n "$top" && "$(cd "$top" && pwd -P)" == "$(cd "$REPO" && pwd -P)" ]]; then
-    check "pre-commit hooks" sh -c "cd \"$REPO\" && git add -A && SKIP=gitleaks,prettier,cargo-fmt uv run --locked --no-build --project \"$central/tools\" pre-commit run --all-files"
+  if [[ -z "$skip" ]]; then
+    echo "    FAIL pre-commit hooks"
+    echo "         no skip-hooks default in $central/.github/workflows/repo-lint.yml"
+    fail=1
+  elif [[ -n "$top" && "$(cd "$top" && pwd -P)" == "$(cd "$REPO" && pwd -P)" ]]; then
+    check "pre-commit hooks (SKIP=$skip)" sh -c "cd \"$REPO\" && git add -A && SKIP=$skip uv run --locked --no-build --project \"$central/tools\" pre-commit run --all-files"
   else
     echo "    skip pre-commit (not its own git repo yet; the bootstrap script runs git init)"
   fi
@@ -106,6 +112,23 @@ for lang in $langs; do
         check "cargo fmt" cargo fmt --check
         check "clippy" cargo clippy --all-targets -- -D warnings
         check "cargo test" cargo test
+        [[ "$fail" = 0 ]] ) || fail=1 ;;
+    go)
+      d=$(dir_for go); echo "==> go ($d)"
+      if ! command -v go >/dev/null; then echo "    skip (go not installed)"; continue; fi
+      # local: a Go older than go.mod's floor fails with Go's own "requires go >= ..." instead of
+      # downloading a toolchain, as in CI. No govulncheck: it needs vuln.go.dev, and CI gates it.
+      ( cd "$d" && export GOTOOLCHAIN=local
+        check "go mod tidy -diff" go mod tidy -diff
+        check "go vet" go vet ./...
+        check "go build" go build ./...
+        check "go test -race" go test -race ./...
+        if command -v golangci-lint >/dev/null; then
+          check "golangci-lint fmt" golangci-lint fmt --diff
+          check "golangci-lint run" golangci-lint run
+        else
+          echo "    skip golangci-lint (not installed)"
+        fi
         [[ "$fail" = 0 ]] ) || fail=1 ;;
   esac
 done

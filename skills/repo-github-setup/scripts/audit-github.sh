@@ -20,6 +20,8 @@ gov = vis == "public" or a.get("github_plan") == "pro"
 out = {
     "OWNER": a.get("github_owner", ""), "SLUG": a.get("repo_name") or a.get("project_slug", ""), "VIS": vis,
     "GOV": "yes" if gov else "no", "PUBLISHES": "yes" if a.get("publishes") else "no",
+    # Go has no registry, so only Python, TypeScript and Rust need a trusted publisher.
+    "REGISTRY": "yes" if a.get("publishes") and set(a.get("languages") or []) - {"go"} else "no",
     "CODERABBIT": "yes" if "coderabbit" in (a.get("ai_reviewers") or []) else "no",
     "SONAR": "yes" if a.get("quality_platform") == "sonarqube-cloud" else "no",
     "SRC": a.get("_src_path", ""),
@@ -162,7 +164,7 @@ fi
 echo "==> not checkable from the API (confirm by hand)"
 [[ "$CODERABBIT" = yes ]] && skip "CodeRabbit GitHub App installed on the repo"
 [[ "$SONAR" = yes ]] && skip "SonarQube Cloud project imported with Automatic Analysis on"
-[[ "$PUBLISHES" = yes ]] && skip "trusted publisher registered on each registry"
+[[ "$REGISTRY" = yes ]] && skip "trusted publisher registered on each registry"
 skip "pre-commit hooks installed locally (uvx pre-commit install)"
 
 echo

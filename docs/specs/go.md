@@ -15,7 +15,7 @@ Out of scope:
 - Starter evals that drive the app itself instead of calling the model directly.
 - Adding a language to an existing single-language repo with `copier update`.
 
-**Status (2026-11-21):** specified, not built. The facts nobody could check by reading are listed under [Not verified](#not-verified), and the build checklist says where each one gets checked.
+**Status (2026-11-22):** built and tested locally (build checklist steps 1–4); not live-checked or released. The facts nobody could check by reading are listed under [Not verified](#not-verified), and the build checklist says where each one gets checked.
 
 ## 1. Copier questions and the starter
 
@@ -31,7 +31,7 @@ _From [What do the Go Copier questions and starter files look like?](https://git
 
 The `publishes` help text becomes "Will you publish releases (packages to PyPI / npm / crates.io, Go binaries on GitHub releases)?". The template README's Questions table and languages row gain Go.
 
-**The CI version list.** Every minor from `go_version` up to the newest known version, lowest first (today `["1.26", "1.27"]`). The newest known version is a literal in `ci.yml.jinja`, like Python's `14`. The floor moves only with `copier update -d go_version=1.N`, which rewrites `go.mod`'s `go` line and the list together. Editing `go.mod` alone makes the floor leg fail, because setup-go sets `GOTOOLCHAIN=local`. Dependabot never moves the floor.
+**The CI version list.** Every minor from `go_version` up to the newest known version, lowest first (today `["1.26", "1.27"]`). The newest known version is a literal, `go_newest` in `includes/go.jinja`, which `ci.yml.jinja` and `release.yml.jinja` both import (Python's `14` stays a literal in `ci.yml.jinja`). _Changed while building: the release build needs the same version, see section 4._ The floor moves only with `copier update -d go_version=1.N`, which rewrites `go.mod`'s `go` line and the list together. Editing `go.mod` alone makes the floor leg fail, because setup-go sets `GOTOOLCHAIN=local`. Dependabot never moves the floor.
 
 **Starter files**, in `go_dir`:
 - `go.mod`:
@@ -39,7 +39,9 @@ The `publishes` help text becomes "Will you publish releases (packages to PyPI /
   - no `toolchain` line and no dependencies, so no `go.sum`.
 - `cmd/[[ project_slug ]]/main.go`:
   - a thin shim that calls `greeting.Greet` and prints the result;
-  - `var version = "dev"` and a `--version` flag, which release builds stamp with `-ldflags -X main.version=<version>`.
+  - `var version = "dev"` and a `--version` flag, which release builds stamp with `-ldflags -X main.version=<version>`;
+  - the flag parsing and printing live in `run(args, stdout, stderr) int`, and `main` is the one line `func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }`.
+- `cmd/[[ project_slug ]]/main_test.go`: a table-driven test of `run` (greeting, `--version`, an unknown flag, a failing stdout). _Added while building:_ the other languages' starters are fully covered libraries, but an untested `main.go` put any PR that adds or touches it under diff-cover's 90%, the central PR adding the Go fixture included. With `run` tested, only `main`'s one line is uncovered (94% on the fixture).
 
   The binary name is `project_slug`. The starter is always a binary; a library repo deletes `cmd/`.
 - `internal/greeting/greeting.go`: `Greet(name string) string`. The package name is a fixed `greeting`, since Go package names can't take a slug's dashes.
@@ -155,7 +157,7 @@ _From [How do Go modules version and release from a subdirectory?](https://githu
 **The `publish-go` job** in `release.yml`:
 - **When:** `needs: release-please`, and it runs when the Go package released. `environment: release` where `has_governance`, like the other publish jobs.
 - **Permissions:** `contents: write`, to upload to the draft. In public repos also `id-token: write` and `attestations: write`.
-- **Build:** six targets (linux, darwin, windows × amd64, arm64), in one job that loops over them. Pure Go cross-compiles quickly, so there's no matrix. Flags: `CGO_ENABLED=0`, `-trimpath`, `-ldflags "-s -w -X main.version=<version>"`. The version is the tag without its `go/` prefix. It's stamped explicitly, because research couldn't confirm Go stamps the right version from a prefixed tag.
+- **Build:** six targets (linux, darwin, windows × amd64, arm64), in one job that loops over them. Pure Go cross-compiles quickly, so there's no matrix. Flags: `CGO_ENABLED=0`, `-trimpath`, `-ldflags "-s -w -X main.version=<version>"`. The version is the tag without its `go/` prefix. It's stamped explicitly, because research couldn't confirm Go stamps the right version from a prefixed tag. The binaries are built with the newest known Go (`go_newest`) at its latest patch (`check-latest`), so they carry a current standard library; the floor in `go.mod` would pin an old patch.
 - **Assets:** raw binaries named `<slug>_<os>_<arch>[.exe]`, plus one `SHA256SUMS`. No archives: `LICENSE` is in the repo and in the module zip.
 - **Steps:**
   1. Build the six binaries and write `SHA256SUMS`.
@@ -278,7 +280,7 @@ _From [What does each skill and its eval cases need for Go?](https://github.com/
 
 **`repo-template-maintain`:**
 - `go_dir` joins the computed-values list.
-- `scripts/list-pins.sh` gains a `default` row for the newest known Go and for the newest known Python, both literals in `ci.yml.jinja`. Python's goes unreported today.
+- `scripts/list-pins.sh` gains a `default` row for the newest known Go (`includes/go.jinja`) and for the newest known Python (`ci.yml.jinja`). Python's goes unreported today.
 - It also gains a `binary` row for the golangci-lint copy in the template's own CI (section 8).
 - The central Go pins (golangci-lint, `tools/go`) are noted like Gitleaks and OSV-Scanner. `actions/setup-go` and `actions/attest` are already picked up by the existing `uses:` scan.
 - **The order at each Go release:**
@@ -336,21 +338,21 @@ Without these, every Go check would be skipped in CI, and the starter `.golangci
 
 ## Not verified
 
-Everything below was read from docs and source but never run. Each item says where it gets checked in the build checklist.
+Everything below was read from docs and source but never run. Each item says where it gets checked in the build checklist, and, once checked, what was found (steps 1–4, 2026-11-22).
 
-| Fact | From | Checked by |
-|---|---|---|
-| `golangci-lint fmt` accepts file arguments together with `--config` from the repo root, and honours the config's `formatters` | [What are the Go local hooks, and which ids does repo-lint skip?](https://github.com/ZeleMate/repo-template/issues/70) | `test-template.sh` (step 4) |
-| Which Go version built golangci-lint v2.15.0, so it lints Go 1.27 code | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | `test-template.sh` (step 4) |
-| Building govulncheck and gocover-cobertura from the central `tools/go` module and running them against the caller's module | [What does the central go.yml run, with which inputs, in which central release?](https://github.com/ZeleMate/repo-template/issues/64) | live check (step 5) |
-| setup-go's cache step with no `go.sum` (fallback: point the cache at `go.mod`) | [What does the central go.yml run, with which inputs, in which central release?](https://github.com/ZeleMate/repo-template/issues/64) | live check (step 5) |
-| The coverage chain end to end (`go test -coverprofile` → gocover-cobertura → diff-cover), run from `go/` | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | live check (step 5) |
-| CodeQL autobuild with `go.mod` in `go/` | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | live check (step 5) |
-| OSV-Scanner's Go call analysis when the runner's Go can't build the module | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | live check (step 5), if it comes up; otherwise left open |
-| release-please-action v5.0.0's bundled code has `tag-separator` (release-please 17.6.0) and produces `go/vX.Y.Z` | [How do Go modules version and release from a subdirectory?](https://github.com/ZeleMate/repo-template/issues/63) | live check (step 5) |
-| `gh release upload` with a slash in the tag | [How do Go modules version and release from a subdirectory?](https://github.com/ZeleMate/repo-template/issues/63), [What does publishes mean for a Go repo?](https://github.com/ZeleMate/repo-template/issues/66) | live check (step 5) |
-| The proxy warm right after release-please creates the draft's tag | [What does publishes mean for a Go repo?](https://github.com/ZeleMate/repo-template/issues/66) | live check (step 5) |
-| Dependabot's handling of a module's `/v2` major | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | left open: the live check doesn't reach v2 |
+| Fact | From | Checked by | Result |
+|---|---|---|---|
+| `golangci-lint fmt` accepts file arguments together with `--config` from the repo root, and honours the config's `formatters` | [What are the Go local hooks, and which ids does repo-lint skip?](https://github.com/ZeleMate/repo-template/issues/70) | `test-template.sh` (step 4) | **Yes.** `golangci-lint fmt --config go/.golangci.yml <file>` from the root sorted and formatted a file with the config's gofmt and goimports; `fmt --diff` exits 1 on unformatted code |
+| Which Go version built golangci-lint v2.15.0, so it lints Go 1.27 code | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | `test-template.sh` (step 4) | **go1.27.0** (`golangci-lint version`). It lints the 1.27 starter with 0 issues |
+| Building govulncheck and gocover-cobertura from the central `tools/go` module and running them against the caller's module | [What does the central go.yml run, with which inputs, in which central release?](https://github.com/ZeleMate/repo-template/issues/64) | live check (step 5) | **Works** in the central repo's CI on its own Go fixture (`go build -o $RUNNER_TEMP/bin/ tool` on Go 1.26.11 and 1.27.4). A call from another repo is still for the live check |
+| setup-go's cache step with no `go.sum` (fallback: point the cache at `go.mod`) | [What does the central go.yml run, with which inputs, in which central release?](https://github.com/ZeleMate/repo-template/issues/64) | live check (step 5) | setup-go v7.1.0's default **throws** when the workspace root has no `go.sum` (`cache-restore.ts`), and its hashing ignores files outside the workspace. `go.yml` passes `cache-dependency-path` with `go.mod`, `go.sum` and `.central/tools/go/go.sum`, and runs before the self-checkout moves out. Cache restored and saved in central CI |
+| The coverage chain end to end (`go test -coverprofile` → gocover-cobertura → diff-cover), run from `go/` | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | live check (step 5) | **Works** from a subfolder: locally from `go/` against a base branch, and in central CI from `tests/fixtures/go` (diff-cover maps the paths; 94%) |
+| CodeQL autobuild with `go.mod` in `go/` | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | live check (step 5) | Not yet |
+| OSV-Scanner's Go call analysis when the runner's Go can't build the module | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | live check (step 5), if it comes up; otherwise left open | Not yet |
+| release-please-action v5.0.0's bundled code has `tag-separator` (release-please 17.6.0) and produces `go/vX.Y.Z` | [How do Go modules version and release from a subdirectory?](https://github.com/ZeleMate/repo-template/issues/63) | live check (step 5) | Not yet |
+| `gh release upload` with a slash in the tag | [How do Go modules version and release from a subdirectory?](https://github.com/ZeleMate/repo-template/issues/63), [What does publishes mean for a Go repo?](https://github.com/ZeleMate/repo-template/issues/66) | live check (step 5) | Not yet |
+| The proxy warm right after release-please creates the draft's tag | [What does publishes mean for a Go repo?](https://github.com/ZeleMate/repo-template/issues/66) | live check (step 5) | Not yet |
+| Dependabot's handling of a module's `/v2` major | [What is the current Go toolchain for lint, vuln scan, coverage and Dependabot?](https://github.com/ZeleMate/repo-template/issues/62) | left open: the live check doesn't reach v2 | Not yet |
 
 ## Build checklist
 

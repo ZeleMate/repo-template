@@ -53,6 +53,21 @@ jobs:
     with:
       working-directory: [[ rs_dir ]]
 [% endif %]
+[% if 'go' in languages %]
+
+[% from 'includes/go.jinja' import go_newest %]
+[% set go_lo = go_version.split('.')[1] | int %]
+[% set go_hi = [go_lo, go_newest] | max %]
+  go:
+    uses: ZeleMate/workflows/.github/workflows/go.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1
+    permissions:
+      contents: read
+    with:
+      # Every minor from go_version (go.mod's floor) up to the newest the template knows.
+      # Move the floor with `copier update -d go_version=1.N`, never by editing go.mod alone.
+      go-versions: '[[ '[' ]][% for m in range(go_lo, go_hi + 1) %]"1.[[ m ]]"[% if not loop.last %], [% endif %][% endfor %][[ ']' ]]'
+      working-directory: [[ go_dir ]]
+[% endif %]
 
   security:
     uses: ZeleMate/workflows/.github/workflows/security.yml@14c90afb9ee7d296703f0194c9fb19bab8a11077  # v1.0.1

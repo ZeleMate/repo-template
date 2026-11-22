@@ -36,6 +36,7 @@ jobs:
             echo "pnpm=$(grep -oE '"packageManager": "pnpm@[0-9.]+' template/*/package.json.jinja | grep -oE '[0-9.]+$')"
             echo "node=$(awk '/^node_version:/{f=1} f && /default:/{gsub(/[^0-9]/,""); print; exit}' copier.yml)"
             echo "rust=$(awk '/^rust_toolchain:/{f=1} f && /default:/{gsub(/[^0-9.]/,""); print; exit}' copier.yml)"
+            echo "go=1.$(grep -oE 'set go_newest = [0-9]+' includes/go.jinja | grep -oE '[0-9]+$')"
           } | tee -a "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115  # v6.1.1
         with:
@@ -47,6 +48,21 @@ jobs:
         env:
           RUST_VERSION: ${{ steps.versions.outputs.rust }}
         run: rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt,clippy
+      # The newest Go the template knows: it builds every answer set, the 1.26-floor ones included.
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
+        with:
+          go-version: ${{ steps.versions.outputs.go }}
+          cache: false  # this repo has no go.sum
+      - name: Install golangci-lint (checksum-verified, same version as the central go workflow)
+        env:
+          GOLANGCI_LINT_VERSION: "2.15.0"
+          GOLANGCI_LINT_SHA256: "9b7fe6a6bf6334b98decf8d86b11415ea7889afdabdd1959fdce23af2a9ebcea"
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl --proto '=https' --tlsv1.2 -fsSL -o "$RUNNER_TEMP/golangci-lint.tgz" "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz"
+          echo "${GOLANGCI_LINT_SHA256}  $RUNNER_TEMP/golangci-lint.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/golangci-lint.tgz" -C "$RUNNER_TEMP/bin" --strip-components=1 "golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Install osv-scanner (checksum-verified, same version as the central security workflow)
         env:
           OSV_VERSION: "2.7.0"
