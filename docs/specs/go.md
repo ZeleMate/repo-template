@@ -31,7 +31,7 @@ _From [What do the Go Copier questions and starter files look like?](https://git
 
 The `publishes` help text becomes "Will you publish releases (packages to PyPI / npm / crates.io, Go binaries on GitHub releases)?". The template README's Questions table and languages row gain Go.
 
-**The CI version list.** Every minor from `go_version` up to the newest known version, lowest first (today `["1.26", "1.27"]`). The newest known version is a literal, `go_newest` in `includes/go.jinja`, which `ci.yml.jinja` and `release.yml.jinja` both import (Python's `14` stays a literal in `ci.yml.jinja`). _Changed while building: the release build needs the same version, see section 4._ The floor moves only with `copier update -d go_version=1.N`, which rewrites `go.mod`'s `go` line and the list together. Editing `go.mod` alone makes the floor leg fail, because setup-go sets `GOTOOLCHAIN=local`. Dependabot never moves the floor.
+**The CI version list.** Every minor from `go_version` up to the newest known version, lowest first (today `["1.26", "1.27"]`). The newest known version is one value, `go.newest` in `includes/toolchain-versions.json`, which `ci.yml.jinja` and `release.yml.jinja` both import through `includes/toolchain-versions.jinja`. _Changed while building: the release build needs the same version, see section 4. Changed later: it was `go_newest` in `includes/go.jinja`, and Python's newest a literal in `ci.yml.jinja`, until both moved into one JSON file that shell reads with `jq`._ The floor moves only with `copier update -d go_version=1.N`, which rewrites `go.mod`'s `go` line and the list together. Editing `go.mod` alone makes the floor leg fail, because setup-go sets `GOTOOLCHAIN=local`. Dependabot never moves the floor.
 
 **Starter files**, in `go_dir`:
 - `go.mod`:
@@ -158,7 +158,7 @@ _From [How do Go modules version and release from a subdirectory?](https://githu
 **The `publish-go` job** in `release.yml`:
 - **When:** `needs: release-please`, and it runs when the Go package released. `environment: release` where `has_governance`, like the other publish jobs.
 - **Permissions:** `contents: write`, to upload to the draft. In public repos also `id-token: write` and `attestations: write`.
-- **Build:** six targets (linux, darwin, windows × amd64, arm64), in one job that loops over them. Pure Go cross-compiles quickly, so there's no matrix. Flags: `CGO_ENABLED=0`, `-trimpath`, `-ldflags "-s -w -X main.version=<version>"`. The version is the tag without its `go/` prefix. It's stamped explicitly, because research couldn't confirm Go stamps the right version from a prefixed tag. The binaries are built with the newest known Go (`go_newest`) at its latest patch (`check-latest`), so they carry a current standard library; the floor in `go.mod` would pin an old patch.
+- **Build:** six targets (linux, darwin, windows × amd64, arm64), in one job that loops over them. Pure Go cross-compiles quickly, so there's no matrix. Flags: `CGO_ENABLED=0`, `-trimpath`, `-ldflags "-s -w -X main.version=<version>"`. The version is the tag without its `go/` prefix. It's stamped explicitly, because research couldn't confirm Go stamps the right version from a prefixed tag. The binaries are built with the newest known Go (`go.newest`) at its latest patch (`check-latest`), so they carry a current standard library; the floor in `go.mod` would pin an old patch.
 - **Assets:** raw binaries named `<slug>_<os>_<arch>[.exe]`, plus one `SHA256SUMS`. No archives: `LICENSE` is in the repo and in the module zip.
 - **Steps:**
   1. Build the six binaries and write `SHA256SUMS`.
@@ -281,7 +281,7 @@ _From [What does each skill and its eval cases need for Go?](https://github.com/
 
 **`repo-template-maintain`:**
 - `go_dir` joins the computed-values list.
-- `scripts/list-pins.sh` gains a `default` row for the newest known Go (`includes/go.jinja`) and for the newest known Python (`ci.yml.jinja`). Python's goes unreported today.
+- `scripts/list-pins.sh` gains a `default` row for the newest known Go and for the newest known Python (both in `includes/toolchain-versions.json`). Python's goes unreported today.
 - It also gains a `binary` row for the golangci-lint copy in the template's own CI (section 8).
 - The central Go pins (golangci-lint, `tools/go`) are noted like Gitleaks and OSV-Scanner. `actions/setup-go` and `actions/attest` are already picked up by the existing `uses:` scan.
 - **The order at each Go release:**

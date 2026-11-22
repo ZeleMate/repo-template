@@ -21,7 +21,7 @@ The oldest version of a managed language that a generated repo supports, taken f
 _Avoid_: minimum version, MSRV
 
 **Newest known version**:
-The newest release of a managed language that the current template release knows about; it tops the CI version list and moves only with a template release.
+The newest release of a managed language that the current template release knows about; it tops the CI version list and moves only with a template release. Only Python and Go have one: a TypeScript repo tests the one Node LTS major it picked, and a Rust repo builds with its own pinned toolchain.
 _Avoid_: latest, current
 
 **Baseline repo**:

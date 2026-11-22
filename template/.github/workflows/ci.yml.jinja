@@ -22,8 +22,9 @@ jobs:
       contents: read
 [% if 'python' in languages %]
 
+[% from 'includes/toolchain-versions.jinja' import newest %]
 [% set py_lo = python_version.split('.')[1] | int %]
-[% set py_hi = (python_max_version.split('.')[1] | int) if python_max_version else ([py_lo, 14] | max) %]
+[% set py_hi = (python_max_version.split('.')[1] | int) if python_max_version else ([py_lo, newest.python.split('.')[1] | int] | max) %]
   python:
     uses: ZeleMate/workflows/.github/workflows/python.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
     permissions:
@@ -55,9 +56,9 @@ jobs:
 [% endif %]
 [% if 'go' in languages %]
 
-[% from 'includes/go.jinja' import go_newest %]
+[% from 'includes/toolchain-versions.jinja' import newest %]
 [% set go_lo = go_version.split('.')[1] | int %]
-[% set go_hi = [go_lo, go_newest] | max %]
+[% set go_hi = [go_lo, newest.go.split('.')[1] | int] | max %]
   go:
     uses: ZeleMate/workflows/.github/workflows/go.yml@1908ed9c83fa76ed4361d2cccff80ae401503fc5  # v1.1.0
     permissions:

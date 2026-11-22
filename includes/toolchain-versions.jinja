@@ -1,0 +1,26 @@
+[#
+  The newest known version of each managed language that has one: the top of its CI version
+  list, which tests every minor from the repo's version floor up to it. The values live in
+  includes/toolchain-versions.json, one object per language keyed by its `languages` id, so
+  shell reads them with `jq -r .go.newest includes/toolchain-versions.json` and never parses
+  Jinja. This file only decodes them for the templates, which import
+    [% from 'includes/toolchain-versions.jinja' import newest %]
+  and get `newest`, e.g. newest.python == "3.14". Both files sit outside template/, so Copier
+  never renders them.
+
+  TypeScript and Rust have no entry: TypeScript tests the one Node LTS major the repo picks
+  (node_version), and Rust builds with the repo's pinned toolchain (rust_toolchain).
+
+  Raise Go only after the central golangci-lint pin is built with that Go and released:
+  golangci-lint can't lint code for a Go newer than the one it was built with (ADR 0004).
+
+  The JSON is read as a Jinja template before it is decoded, so it must hold no `[[`, `[%` or
+  `[#` (no nested arrays).
+#]
+[% set _raw %][% include 'includes/toolchain-versions.json' %][% endset %]
+[% set newest = {} %]
+[% for lang, v in (_raw | from_json).items() %]
+[% if v.newest is defined %]
+[% set _ = newest.update({lang: v.newest}) %]
+[% endif %]
+[% endfor %]

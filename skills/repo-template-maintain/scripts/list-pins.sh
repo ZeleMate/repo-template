@@ -68,8 +68,7 @@ c = yaml.safe_load(open("copier.yml"))
 for k in ("python_version", "node_version", "rust_toolchain", "rust_msrv", "go_version"):
     print(k, c[k]["default"])' | while read -r key val; do row default "$key" "$val" "-" "copier.yml (check upstream support windows)"; done
 
-# The newest versions CI tests, literals in the templates (a new release isn't tested until they move).
-py=$(grep -oE '\[py_lo, [0-9]+\]' template/.github/workflows/ci.yml.jinja | grep -oE '[0-9]+\]' | tr -d ']')
-row default "newest Python (CI matrix)" "3.$py" "-" "ci.yml.jinja ([py_lo, N])"
-go=$(grep -oE 'set go_newest = [0-9]+' includes/go.jinja | grep -oE '[0-9]+$')
-row default "newest Go (CI matrix, release builds)" "1.$go" "$(curl -fsS 'https://go.dev/dl/?mode=json' 2>/dev/null | jq -r '.[0].version // "?"' | sed -E 's/^go([0-9]+\.[0-9]+).*/\1/')" "includes/go.jinja (move central golangci-lint first)"
+# The newest known versions, which top the CI version lists (a new release isn't tested until they move).
+V=includes/toolchain-versions.json
+row default "newest Python (CI matrix)" "$(jq -r .python.newest "$V")" "-" "$V"
+row default "newest Go (CI matrix, release builds)" "$(jq -r .go.newest "$V")" "$(curl -fsS 'https://go.dev/dl/?mode=json' 2>/dev/null | jq -r '.[0].version // "?"' | sed -E 's/^go([0-9]+\.[0-9]+).*/\1/')" "$V (move central golangci-lint first)"

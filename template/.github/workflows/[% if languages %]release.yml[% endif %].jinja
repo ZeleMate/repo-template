@@ -150,7 +150,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 [% endif %]
 [% if 'go' in languages %]
-[% from 'includes/go.jinja' import go_newest %]
+[% from 'includes/toolchain-versions.jinja' import newest %]
 
   # Go has no registry: the tag is the release, and proxy.golang.org fetches it on first use.
   # This job adds cross-compiled binaries and SHA256SUMS to the draft release.
@@ -180,7 +180,7 @@ jobs:
       # The newest Go CI tests, at its latest patch, so the binaries carry a current standard library.
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
         with:
-          go-version: "1.[[ go_newest ]]"
+          go-version: "[[ newest.go ]]"
           check-latest: true
           cache: false
       - name: Build the binaries and SHA256SUMS

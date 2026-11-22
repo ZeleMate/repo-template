@@ -36,7 +36,7 @@ jobs:
             echo "pnpm=$(grep -oE '"packageManager": "pnpm@[0-9.]+' template/*/package.json.jinja | grep -oE '[0-9.]+$')"
             echo "node=$(awk '/^node_version:/{f=1} f && /default:/{gsub(/[^0-9]/,""); print; exit}' copier.yml)"
             echo "rust=$(awk '/^rust_toolchain:/{f=1} f && /default:/{gsub(/[^0-9.]/,""); print; exit}' copier.yml)"
-            echo "go=1.$(grep -oE 'set go_newest = [0-9]+' includes/go.jinja | grep -oE '[0-9]+$')"
+            echo "go=$(jq -r .go.newest includes/toolchain-versions.json)"
           } | tee -a "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115  # v6.1.1
         with:

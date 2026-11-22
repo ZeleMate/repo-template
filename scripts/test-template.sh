@@ -36,6 +36,17 @@ verify() { # answer set: run the generated-repo checker on it
   bash "$VERIFY" "$OUT/$1" || failed+=("$1 (verify-generated)")
 }
 
+# The newest known versions (includes/toolchain-versions.json). The expected CI version lists are
+# computed from them and from each answer set's floor, never restated here.
+newest() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]]["newest"])' "$TEMPLATE/includes/toolchain-versions.json" "$1"; }
+PY_NEWEST=$(newest python); GO_NEWEST=$(newest go)
+ci_versions() { # floor, newest: every minor from the floor up to the newest (the floor alone if it is newer)
+  python3 -c 'import sys; major, lo = sys.argv[1].split("."); hi = int(sys.argv[2].split(".")[1]); print("[" + ", ".join(f"\"{major}.{m}\"" for m in range(int(lo), max(int(lo), hi) + 1)) + "]")' "$1" "$2"
+}
+answer() { # answer set, question: the answer Copier recorded in .copier-answers.yml
+  sed -nE "s/^$2: '?([^']*)'?$/\1/p" "$OUT/$1/.copier-answers.yml"
+}
+
 gen() { # dir, extra copier -d args...
   local dir=$1; shift
   rm -rf "${OUT:?}/$dir"
@@ -64,7 +75,9 @@ verify rs
 echo "==> go, public, publishes, not agentic"
 gen go -d languages='[go]' -d visibility=public -d publishes=true -d agentic=false
 verify go
-check "go: CI tests the floor up to the newest Go" sh -c "grep -q \"go-versions: '\\[\\\"1.26\\\", \\\"1.27\\\"\\]'\" \"$OUT/go/.github/workflows/ci.yml\""
+check "go: CI tests the floor ($(answer go go_version)) up to the newest known Go ($GO_NEWEST)" \
+  grep -qF "go-versions: '$(ci_versions "$(answer go go_version)" "$GO_NEWEST")'" "$OUT/go/.github/workflows/ci.yml"
+check "go: release binaries build with the newest known Go" grep -qF "go-version: \"$GO_NEWEST\"" "$OUT/go/.github/workflows/release.yml"
 check "go: module at the root, root vX.Y.Z tags, 0.x bumps the minor on breaks" sh -c "cd \"$OUT/go\" && head -1 go.mod | grep -qx 'module github.com/example/demo-app' && grep -q '\"include-component-in-tag\": false' release-please-config.json && ! grep -q tag-separator release-please-config.json && grep -q '\"bump-minor-pre-major\": true' release-please-config.json"
 check "go: sbom waits for publish-go; public releases attest and warm the proxy" sh -c "f=\"$OUT/go/.github/workflows/release.yml\"; grep -q 'needs: \\[release-please, publish-go\\]' \"\$f\" && grep -q 'uses: actions/attest@' \"\$f\" && grep -q 'Warm the Go module proxy' \"\$f\""
 if command -v golangci-lint >/dev/null; then
@@ -81,9 +94,11 @@ for row in "2.0.0||1" "2.0.0|/v2|0" "1.4.0|/v2|0" "3.0.0|/v2|1"; do
 done
 
 echo "==> go, private, agentic, floor at the newest Go"
-gen go-priv -d languages='[go]' -d visibility=private -d agentic=true -d go_version=1.27
+gen go-priv -d languages='[go]' -d visibility=private -d agentic=true -d go_version="$GO_NEWEST"
 verify go-priv
-check "go-priv: one CI leg; no attestation or proxy warm in a private repo" sh -c "f=\"$OUT/go-priv/.github/workflows\"; grep -q \"go-versions: '\\[\\\"1.27\\\"\\]'\" \"\$f/ci.yml\" && ! grep -q 'actions/attest@' \"\$f/release.yml\" && ! grep -q 'proxy.golang.org' \"\$f/release.yml\""
+# shellcheck disable=SC2016 # $1 and $2 belong to the inner sh
+check "go-priv: one CI leg; no attestation or proxy warm in a private repo" sh -c 'grep -qF "go-versions: $2" "$1/ci.yml" && ! grep -q "actions/attest@" "$1/release.yml" && ! grep -q "proxy.golang.org" "$1/release.yml"' \
+  _ "$OUT/go-priv/.github/workflows" "'$(ci_versions "$GO_NEWEST" "$GO_NEWEST")'"
 
 echo "==> python + typescript + rust + go, private pro, mypy, sonar, publishes"
 gen multi -d languages='[python, typescript, rust, go]' -d visibility=private -d github_plan=pro \
@@ -127,7 +142,8 @@ check "release-please bumps uv.lock's own version" sh -c "grep -q \"@.name.value
 check "releases are drafted, then published after the SBOM is attached" sh -c "grep -q '\"draft\": true' \"$OUT/py/release-please-config.json\" && grep -q '\"force-tag-creation\": true' \"$OUT/py/release-please-config.json\" && grep -q 'gh release edit \"\$tag\" --draft=false' \"$OUT/py/.github/workflows/release.yml\""
 check "dependabot automerge uses a merge method the repo and its rulesets allow" sh -c "f=\"$OUT/py/.github/workflows/dependabot-automerge.yml\"; grep -q 'rules/branches/\$BASE' \"\$f\" && grep -q 'gh pr merge --auto \"--\$method\"' \"\$f\" && ! grep -q -- '--squash' \"\$f\""
 check "typescript projects ship an expiring osv-scanner accept list" sh -c "grep -q '^ignoreUntil = ' \"$OUT/ts/osv-scanner.toml\" && grep -q '^ignoreUntil = ' \"$OUT/multi/typescript/osv-scanner.toml\" && test ! -e \"$OUT/py/osv-scanner.toml\""
-check "uncapped Python still tests up to 3.14" sh -c "grep -q '\"3.14\"' \"$OUT/py/.github/workflows/ci.yml\""
+check "uncapped Python tests the floor ($(answer py python_version)) up to the newest known ($PY_NEWEST)" \
+  grep -qF "python-versions: '$(ci_versions "$(answer py python_version)" "$PY_NEWEST")'" "$OUT/py/.github/workflows/ci.yml"
 
 # Secret requirements (ADR 0003): the rendered list of Actions secrets must match the secrets the
 # rendered workflows read, and every file it names as a user must exist.
