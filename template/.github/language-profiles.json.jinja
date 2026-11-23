@@ -8,6 +8,6 @@
 [% if c.tool %][% set _ = check.update({"tool": c.tool}) %][% endif %]
 [% set _ = checks.append(check) %]
 [% endfor %]
-[% set _ = out.append({"id": id, "name": l.name, "dir": l.dir, "toolchain": l.toolchain, "lock": l.lock, "checks": checks}) %]
+[% set _ = out.append({"id": id, "name": l.name, "dir": l.dir, "toolchain": l.toolchain, "lock": l.lock, "registry": l.registry, "checks": checks}) %]
 [% endfor %]
-[[ {"_comment": "Written by the repo template from includes/languages.json (ADR 0006); refreshed by copier update. The checks AGENTS.md documents, for scripts: run each in dir, in order.", "languages": out} | tojson(indent=2) ]]
+[[ {"_comment": "Written by the repo template from includes/languages.json (ADR 0006); refreshed by copier update. For scripts and skills: the checks AGENTS.md documents (run each in dir, in order), the lock command and the registry `publishes` sends packages to (null: none).", "languages": out} | tojson(indent=2) ]]
