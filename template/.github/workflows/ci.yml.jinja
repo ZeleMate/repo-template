@@ -22,7 +22,7 @@ jobs:
       contents: read
 [% if 'python' in languages %]
 
-[% from 'includes/toolchain-versions.jinja' import newest %]
+[% from 'includes/languages.jinja' import newest with context %]
 [% set py_lo = python_version.split('.')[1] | int %]
 [% set py_hi = (python_max_version.split('.')[1] | int) if python_max_version else ([py_lo, newest.python.split('.')[1] | int] | max) %]
   python:
@@ -33,7 +33,7 @@ jobs:
       # Every supported minor version: python_version up to python_max_version (or the newest).
       python-versions: '[[ '[' ]][% for m in range(py_lo, py_hi + 1) %]"3.[[ m ]]"[% if not loop.last %], [% endif %][% endfor %][[ ']' ]]'
       type-checker: [[ python_type_checker ]]
-      working-directory: [[ py_dir ]]
+      working-directory: [[ lang_dir.python ]]
 [% endif %]
 [% if 'typescript' in languages %]
 
@@ -43,7 +43,7 @@ jobs:
       contents: read
     with:
       node-version: "[[ node_version ]]"
-      working-directory: [[ ts_dir ]]
+      working-directory: [[ lang_dir.typescript ]]
 [% endif %]
 [% if 'rust' in languages %]
 
@@ -52,11 +52,11 @@ jobs:
     permissions:
       contents: read
     with:
-      working-directory: [[ rs_dir ]]
+      working-directory: [[ lang_dir.rust ]]
 [% endif %]
 [% if 'go' in languages %]
 
-[% from 'includes/toolchain-versions.jinja' import newest %]
+[% from 'includes/languages.jinja' import newest with context %]
 [% set go_lo = go_version.split('.')[1] | int %]
 [% set go_hi = [go_lo, newest.go.split('.')[1] | int] | max %]
   go:
@@ -67,7 +67,7 @@ jobs:
       # Every minor from go_version (go.mod's floor) up to the newest the template knows.
       # Move the floor with `copier update -d go_version=1.N`, never by editing go.mod alone.
       go-versions: '[[ '[' ]][% for m in range(go_lo, go_hi + 1) %]"1.[[ m ]]"[% if not loop.last %], [% endif %][% endfor %][[ ']' ]]'
-      working-directory: [[ go_dir ]]
+      working-directory: [[ lang_dir.go ]]
 [% endif %]
 
   security:
@@ -92,6 +92,7 @@ jobs:
     if: always()
     needs:
       - repo-lint
+[# Each managed language's job above is named by its id (includes/languages.jinja). #]
 [% for l in languages %]
       - [[ l ]]
 [% endfor %]

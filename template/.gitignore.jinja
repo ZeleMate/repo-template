@@ -50,7 +50,7 @@ target/
 # Go (release binaries are built only in CI)
 coverage.out
 *.test
-/[% if go_dir != '.' %][[ go_dir ]]/[% endif %][[ project_slug ]]
+/[% if lang_dir.go != '.' %][[ lang_dir.go ]]/[% endif %][[ project_slug ]]
 [% endif %]
 [% if agentic %]
 

@@ -36,7 +36,7 @@ jobs:
             echo "pnpm=$(grep -oE '"packageManager": "pnpm@[0-9.]+' template/*/package.json.jinja | grep -oE '[0-9.]+$')"
             echo "node=$(awk '/^node_version:/{f=1} f && /default:/{gsub(/[^0-9]/,""); print; exit}' copier.yml)"
             echo "rust=$(awk '/^rust_toolchain:/{f=1} f && /default:/{gsub(/[^0-9.]/,""); print; exit}' copier.yml)"
-            echo "go=$(jq -r .go.newest includes/toolchain-versions.json)"
+            echo "go=$(jq -r .go.newest includes/languages.json)"
           } | tee -a "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115  # v6.1.1
         with:
@@ -48,6 +48,10 @@ jobs:
         env:
           RUST_VERSION: ${{ steps.versions.outputs.rust }}
         run: rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt,clippy
+      # The Rust checks' tools, as the central rust workflow installs them, so verify runs every check.
+      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2  # v2.90.0
+        with:
+          tool: cargo-nextest,cargo-deny
       # The newest Go the template knows: it builds every answer set, the 1.26-floor ones included.
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5  # v7.1.0
         with:

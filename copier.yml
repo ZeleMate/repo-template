@@ -75,6 +75,18 @@ languages:
     Go: go
   default: [python]
 
+# Computed (not asked), here because questions below use them: Copier fills defaults in order.
+multi_lang:
+  type: bool
+  default: "[[ languages | length > 1 ]]"
+  when: false
+# Each managed language's folder: its id when there are several, else the root.
+lang_dir:
+  type: json
+  default: >-
+    {[% for l in languages %]"[[ l ]]": "[[ l if languages | length > 1 else '.' ]]"[% if not loop.last %], [% endif %][% endfor %]}
+  when: false
+
 extra_ecosystems:
   type: str
   help: >-
@@ -212,32 +224,12 @@ go_module:
   help: >-
     Go module path (the module line in go.mod). A vanity path or another host works too;
     for v2 and later it ends in /vN
-  default: "github.com/[[ github_owner ]]/[[ repo_name ]][% if languages | length > 1 %]/go[% endif %]"
+  default: "github.com/[[ github_owner ]]/[[ repo_name ]][% if multi_lang %]/[[ lang_dir.go ]][% endif %]"
   when: "[[ 'go' in languages ]]"
   validator: >-
     [% if go_module.split() | length != 1 or go_module != go_module.strip() or '.' not in go_module.split('/')[0] %]Use a module path like github.com/owner/repo: no spaces, and a host with a dot first[% endif %]
 
 # ---------------------------------------------------------------- computed (not asked)
-multi_lang:
-  type: bool
-  default: "[[ languages | length > 1 ]]"
-  when: false
-py_dir:
-  type: str
-  default: "[% if languages | length > 1 %]python[% else %].[% endif %]"
-  when: false
-ts_dir:
-  type: str
-  default: "[% if languages | length > 1 %]typescript[% else %].[% endif %]"
-  when: false
-rs_dir:
-  type: str
-  default: "[% if languages | length > 1 %]rust[% else %].[% endif %]"
-  when: false
-go_dir:
-  type: str
-  default: "[% if languages | length > 1 %]go[% else %].[% endif %]"
-  when: false
 baseline:
   type: bool
   default: "[[ languages | length == 0 ]]"
@@ -264,12 +256,10 @@ _tasks:
   - command: chmod +x scripts/bootstrap-github.sh .claude/hooks/format.sh
   - command: uv lock --project .github/tools
     when: "[[ _copier_operation == 'copy' ]]"
-  - command: "cd '[[ py_dir ]]' && uv lock"
-    when: "[[ _copier_operation == 'copy' and 'python' in languages ]]"
-  - command: "cd '[[ ts_dir ]]' && pnpm install --lockfile-only"
-    when: "[[ _copier_operation == 'copy' and 'typescript' in languages ]]"
-  - command: "cd '[[ rs_dir ]]' && (command -v cargo >/dev/null && cargo generate-lockfile || echo 'cargo not found: run cargo generate-lockfile later')"
-    when: "[[ _copier_operation == 'copy' and 'rust' in languages ]]"
+  # Each managed language's lock step (includes/languages.json), in its folder.
+  - command: >-
+      [% from 'includes/languages.jinja' import managed with context %][% for l in managed.values() %](cd '[[ l.dir ]]' && if command -v [[ l.toolchain ]] >/dev/null; then [[ l.lock ]]; else echo '[[ l.toolchain ]] not found: run [[ l.lock ]] in [[ l.dir ]] later'; fi) && [% endfor %]true
+    when: "[[ _copier_operation == 'copy' and languages ]]"
 
 _message_after_copy: |
   Generated [[ project_name ]].

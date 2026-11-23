@@ -16,6 +16,14 @@ _Avoid_: child repo, downstream repo, project
 A language named in the `languages` answer, for which the template writes and updates the toolchain, CI call and release config.
 _Avoid_: supported language, stack
 
+**Language profile**:
+The facts the template holds about one managed language that more than one generated file needs: its toolchain, lock step, registry, Dependabot ecosystem and the checks a change must pass. Every file that names the language is written from it, and a generated repo carries the profiles of its own languages.
+_Avoid_: language config, toolchain settings, stack definition
+
+**Check**:
+One command a change must pass in a managed language, run by CI and by the local verifier, and documented for contributors; it may have a fixing form, which is what contributors run.
+_Avoid_: dev command, lint step, CI step
+
 **Version floor**:
 The oldest version of a managed language that a generated repo supports, taken from its Copier answer; CI tests every minor from it up to the newest known version.
 _Avoid_: minimum version, MSRV

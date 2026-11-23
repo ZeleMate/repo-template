@@ -65,14 +65,14 @@ repos:
 [% if 'typescript' in languages %]
       - id: prettier
         name: prettier
-        entry: pnpm --dir [[ ts_dir ]] exec prettier --write --ignore-unknown
+        entry: pnpm --dir [[ lang_dir.typescript ]] exec prettier --write --ignore-unknown
         language: system
-        files: ^[% if multi_lang %][[ ts_dir ]]/[% endif %].*\.(ts|tsx|js|mjs|cjs|json|css)$
+        files: ^[% if multi_lang %][[ lang_dir.typescript ]]/[% endif %].*\.(ts|tsx|js|mjs|cjs|json|css)$
 [% endif %]
 [% if 'rust' in languages %]
       - id: cargo-fmt
         name: cargo fmt
-        entry: cargo fmt --manifest-path [[ rs_dir ]]/Cargo.toml --
+        entry: cargo fmt --manifest-path [[ lang_dir.rust ]]/Cargo.toml --
         language: system
         types: [rust]
         pass_filenames: false
@@ -81,18 +81,18 @@ repos:
       # Formatting only (gofmt + goimports from .golangci.yml); CI runs the full lint.
       - id: golangci-lint-fmt
         name: golangci-lint fmt
-        entry: golangci-lint fmt --config [[ go_dir ]]/.golangci.yml
+        entry: golangci-lint fmt --config [[ lang_dir.go ]]/.golangci.yml
         language: system
         types: [go]
 [% if multi_lang %]
-        files: ^[[ go_dir ]]/
+        files: ^[[ lang_dir.go ]]/
 [% endif %]
       # A release of v2 or later needs the /vN suffix on go.mod's module line first.
       - id: go-major-version
         name: go major version matches the module path
         entry: sh scripts/go-major-version.sh
         language: system
-        files: ^(\.release-please-manifest\.json|[% if multi_lang %][[ go_dir ]]/[% endif %]go\.mod)$
+        files: ^(\.release-please-manifest\.json|[% if multi_lang %][[ lang_dir.go ]]/[% endif %]go\.mod)$
         pass_filenames: false
 [% endif %]
 [% endif %]

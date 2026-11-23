@@ -32,13 +32,17 @@ check() { # name, command... (an assertion about the template, beyond what verif
   if "$@" >"$OUT/.log" 2>&1; then echo "    ok   $name"; else echo "    FAIL $name"; sed 's/^/         /' "$OUT/.log" | tail -25; failed+=("$name"); fi
 }
 
-verify() { # answer set: run the generated-repo checker on it
-  bash "$VERIFY" "$OUT/$1" || failed+=("$1 (verify-generated)")
+verify() { # answer set: run the generated-repo checker on it (output kept in $OUT/<set>.verify.log)
+  bash "$VERIFY" "$OUT/$1" | tee "$OUT/$1.verify.log" || failed+=("$1 (verify-generated)")
+}
+ran() { # answer set, check lines...: verify ran each language-profile check and it passed (not skipped)
+  local set=$1; shift
+  for line; do grep -qF "    ok   $line" "$OUT/$set.verify.log" || { echo "verify didn't pass: $line"; return 1; }; done
 }
 
-# The newest known versions (includes/toolchain-versions.json). The expected CI version lists are
+# The newest known versions (the language profiles in includes/languages.json). The expected CI version lists are
 # computed from them and from each answer set's floor, never restated here.
-newest() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]]["newest"])' "$TEMPLATE/includes/toolchain-versions.json" "$1"; }
+newest() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]]["newest"])' "$TEMPLATE/includes/languages.json" "$1"; }
 PY_NEWEST=$(newest python); GO_NEWEST=$(newest go)
 ci_versions() { # floor, newest: every minor from the floor up to the newest (the floor alone if it is newer)
   python3 -c 'import sys; major, lo = sys.argv[1].split("."); hi = int(sys.argv[2].split(".")[1]); print("[" + ", ".join(f"\"{major}.{m}\"" for m in range(int(lo), max(int(lo), hi) + 1)) + "]")' "$1" "$2"
@@ -60,9 +64,13 @@ echo "==> python, public, agentic, publishes, sonar + coderabbit"
 gen py -d languages='[python]' -d visibility=public -d agentic=true -d publishes=true
 verify py
 
+check "py: verify ran the profile's Python checks" ran py "typecheck: uv run pyright -p pyproject.toml" "test: uv run pytest --cov" "build: uv build"
+
 echo "==> typescript, private free, eslint, not agentic"
 gen ts -d languages='[typescript]' -d visibility=private -d agentic=false
 verify ts
+
+check "ts: verify ran the profile's TypeScript checks" ran ts "format: pnpm run format:check" "test: pnpm run test:coverage"
 
 echo "==> typescript, oxlint, mypy n/a"
 gen ts-ox -d languages='[typescript]' -d ts_linter=oxlint -d agentic=false
@@ -110,7 +118,7 @@ check "multi: sbom waits for publish-go" sh -c "grep -q 'needs: \\[release-pleas
 # Baseline repos (ADR 0002): no managed language, so none of the left-out files may render.
 check_baseline() {
   local d=$1
-  check "baseline leaves out toolchain, release and ops files" sh -c "cd \"$d\" && for f in README.md CONTRIBUTING.md CHANGELOG.md release-please-config.json .release-please-manifest.json .github/workflows/release.yml docs/slo.md docs/dependencies.md docs/runbooks pyproject.toml package.json Cargo.toml python typescript rust; do [ ! -e \"\$f\" ] || { echo \"unexpected \$f\"; exit 1; }; done"
+  check "baseline leaves out toolchain, release and ops files" sh -c "cd \"$d\" && for f in README.md CONTRIBUTING.md CHANGELOG.md release-please-config.json .release-please-manifest.json .github/workflows/release.yml docs/slo.md docs/dependencies.md docs/runbooks pyproject.toml package.json Cargo.toml go.mod python typescript rust go; do [ ! -e \"\$f\" ] || { echo \"unexpected \$f\"; exit 1; }; done"
   check "baseline keeps the merge gate and local CI" sh -c "cd \"$d\" && for f in .github/workflows/ci.yml .github/workflows/ci-local.yml .github/workflows/security.yml .github/dependabot.yml AGENTS.md CLAUDE.md SECURITY.md .pre-commit-config.yaml scripts/bootstrap-github.sh docs/SETUP.md; do [ -e \"\$f\" ] || { echo \"missing \$f\"; exit 1; }; done"
 }
 
@@ -173,7 +181,10 @@ echo "==> verify-generated.sh fails on a broken repo"
 rm -rf "${OUT:?}/broken"; cp -R "$OUT/base-priv" "$OUT/broken"
 printf '# [[ project_name ]]\n' > "$OUT/broken/NOTES.md"
 printf '{\n' > "$OUT/broken/.claude/settings.json"
-check "exits 1 and names the unrendered tag and the invalid JSON" sh -c "out=\$(bash \"$VERIFY\" \"$OUT/broken\" 2>&1); rc=\$?; echo \"\$out\" | tail -40; [ \$rc = 1 ] && echo \"\$out\" | grep -q 'FAIL no unrendered template tags' && echo \"\$out\" | grep -q 'FAIL json valid'"
+# ...and, posing as a Python repo, it has no language profiles: verify must not pass it without checks.
+sed -i.bak 's/^languages: \[\]$/languages: [python]/' "$OUT/broken/.copier-answers.yml" && rm -f "$OUT/broken/.copier-answers.yml.bak"
+rm -f "$OUT/broken/.github/language-profiles.json"
+check "exits 1 and names the unrendered tag, the invalid JSON and the missing language profiles" sh -c "out=\$(bash \"$VERIFY\" \"$OUT/broken\" 2>&1); rc=\$?; echo \"\$out\" | tail -40; [ \$rc = 1 ] && echo \"\$out\" | grep -q 'FAIL no unrendered template tags' && echo \"\$out\" | grep -q 'FAIL json valid' && echo \"\$out\" | grep -q 'FAIL language profiles'"
 
 echo
 if [[ ${#failed[@]} -eq 0 ]]; then

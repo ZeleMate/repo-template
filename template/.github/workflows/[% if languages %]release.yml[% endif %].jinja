@@ -28,10 +28,10 @@ jobs:
       issues: write
     outputs:
       any: ${{ steps.rp.outputs.releases_created }}
+[# Keyed by language id; release-please prefixes each output with the package folder. #]
 [% for l in languages %]
-[% set d = {'python': py_dir, 'typescript': ts_dir, 'rust': rs_dir, 'go': go_dir}[l] %]
-      [[ l ]]: ${{ steps.rp.outputs['[[ out(d, 'release_created') ]]'] }}
-      [[ l ]]_tag: ${{ steps.rp.outputs['[[ out(d, 'tag_name') ]]'] }}
+      [[ l ]]: ${{ steps.rp.outputs['[[ out(lang_dir[l], 'release_created') ]]'] }}
+      [[ l ]]_tag: ${{ steps.rp.outputs['[[ out(lang_dir[l], 'tag_name') ]]'] }}
 [% endfor %]
     steps:
       - name: Require RELEASE_PLEASE_TOKEN
@@ -73,17 +73,17 @@ jobs:
         with:
           enable-cache: false
       - run: uv build
-        working-directory: [[ py_dir ]]
+        working-directory: [[ lang_dir.python ]]
 [% if is_public %]
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
-          subject-path: "[[ py_dir ]]/dist/*"
+          subject-path: "[[ lang_dir.python ]]/dist/*"
 [% endif %]
       # Trusted publishing (OIDC): register this repo + workflow as a trusted publisher on PyPI first.
       # Produces PEP 740 attestations by default.
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
         with:
-          packages-dir: [[ py_dir ]]/dist/
+          packages-dir: [[ lang_dir.python ]]/dist/
 [% endif %]
 [% if 'typescript' in languages %]
 
@@ -100,14 +100,14 @@ jobs:
       id-token: write
     defaults:
       run:
-        working-directory: [[ ts_dir ]]
+        working-directory: [[ lang_dir.typescript ]]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
         with:
-          package_json_file: [[ ts_dir ]]/package.json
+          package_json_file: [[ lang_dir.typescript ]]/package.json
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: "[[ node_version ]]"
@@ -136,7 +136,7 @@ jobs:
       id-token: write
     defaults:
       run:
-        working-directory: [[ rs_dir ]]
+        working-directory: [[ lang_dir.rust ]]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -150,7 +150,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 [% endif %]
 [% if 'go' in languages %]
-[% from 'includes/toolchain-versions.jinja' import newest %]
+[% from 'includes/languages.jinja' import newest with context %]
 
   # Go has no registry: the tag is the release, and proxy.golang.org fetches it on first use.
   # This job adds cross-compiled binaries and SHA256SUMS to the draft release.
@@ -170,7 +170,7 @@ jobs:
 [% endif %]
     defaults:
       run:
-        working-directory: [[ go_dir ]]
+        working-directory: [[ lang_dir.go ]]
     env:
       TAG: ${{ needs.release-please.outputs.go_tag }}
     steps:
@@ -199,7 +199,7 @@ jobs:
 [% if is_public %]
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
         with:
-          subject-checksums: [[ go_dir ]]/dist/SHA256SUMS
+          subject-checksums: [[ lang_dir.go ]]/dist/SHA256SUMS
 [% endif %]
       - name: Upload to the draft release
         env:

@@ -69,6 +69,6 @@ for k in ("python_version", "node_version", "rust_toolchain", "rust_msrv", "go_v
     print(k, c[k]["default"])' | while read -r key val; do row default "$key" "$val" "-" "copier.yml (check upstream support windows)"; done
 
 # The newest known versions, which top the CI version lists (a new release isn't tested until they move).
-V=includes/toolchain-versions.json
+V=includes/languages.json
 row default "newest Python (CI matrix)" "$(jq -r .python.newest "$V")" "-" "$V"
 row default "newest Go (CI matrix, release builds)" "$(jq -r .go.newest "$V")" "$(curl -fsS 'https://go.dev/dl/?mode=json' 2>/dev/null | jq -r '.[0].version // "?"' | sed -E 's/^go([0-9]+\.[0-9]+).*/\1/')" "$V (move central golangci-lint first)"

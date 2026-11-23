@@ -27,11 +27,11 @@ _From [What do the Go Copier questions and starter files look like?](https://git
 |---|---|---|---|
 | `go_version` | asked | `1.26` (the oldest supported release) | The version floor. A free string validated as `1.N`, not a choices list: when a later template release moves the choices, an old answer would stop `copier update`. No max cap like `python_max_version`, because Go's compatibility promise means newer Go builds older code. |
 | `go_module` | asked | `github.com/[[ github_owner ]]/[[ repo_name ]]`, plus `/go` when `go_dir` is `go` | The module path, asked like Python's `package_name` so that vanity paths and other hosts work. Case is kept as on GitHub. Light validator: no whitespace, and a first path element containing a dot. The `/go` suffix isn't enforced, since a vanity path can map onto the subfolder. It also accepts a `/vN` suffix (section 4). |
-| `go_dir` | computed (`when: false`) | `go` in a multi-language repo, else `.` | Matches `py_dir`, `ts_dir`, `rs_dir`. |
+| `go_dir` | computed (`when: false`) | `go` in a multi-language repo, else `.` | Matches `py_dir`, `ts_dir`, `rs_dir`. _Changed later: all four are now `lang_dir.go` etc., one computed map (ADR 0006)._ |
 
 The `publishes` help text becomes "Will you publish releases (packages to PyPI / npm / crates.io, Go binaries on GitHub releases)?". The template README's Questions table and languages row gain Go.
 
-**The CI version list.** Every minor from `go_version` up to the newest known version, lowest first (today `["1.26", "1.27"]`). The newest known version is one value, `go.newest` in `includes/toolchain-versions.json`, which `ci.yml.jinja` and `release.yml.jinja` both import through `includes/toolchain-versions.jinja`. _Changed while building: the release build needs the same version, see section 4. Changed later: it was `go_newest` in `includes/go.jinja`, and Python's newest a literal in `ci.yml.jinja`, until both moved into one JSON file that shell reads with `jq`._ The floor moves only with `copier update -d go_version=1.N`, which rewrites `go.mod`'s `go` line and the list together. Editing `go.mod` alone makes the floor leg fail, because setup-go sets `GOTOOLCHAIN=local`. Dependabot never moves the floor.
+**The CI version list.** Every minor from `go_version` up to the newest known version, lowest first (today `["1.26", "1.27"]`). The newest known version is one value, `go.newest` in `includes/languages.json`, which `ci.yml.jinja` and `release.yml.jinja` both import through `includes/languages.jinja`. _Changed while building: the release build needs the same version, see section 4. Changed later: it was `go_newest` in `includes/go.jinja`, and Python's newest a literal in `ci.yml.jinja`, until both moved into one JSON file that shell reads with `jq`, which then grew into the language profiles (ADR 0006)._ The floor moves only with `copier update -d go_version=1.N`, which rewrites `go.mod`'s `go` line and the list together. Editing `go.mod` alone makes the floor leg fail, because setup-go sets `GOTOOLCHAIN=local`. Dependabot never moves the floor.
 
 **Starter files**, in `go_dir`:
 - `go.mod`:
@@ -281,7 +281,7 @@ _From [What does each skill and its eval cases need for Go?](https://github.com/
 
 **`repo-template-maintain`:**
 - `go_dir` joins the computed-values list.
-- `scripts/list-pins.sh` gains a `default` row for the newest known Go and for the newest known Python (both in `includes/toolchain-versions.json`). Python's goes unreported today.
+- `scripts/list-pins.sh` gains a `default` row for the newest known Go and for the newest known Python (both in `includes/languages.json`). Python's goes unreported today.
 - It also gains a `binary` row for the golangci-lint copy in the template's own CI (section 8).
 - The central Go pins (golangci-lint, `tools/go`) are noted like Gitleaks and OSV-Scanner. `actions/setup-go` and `actions/attest` are already picked up by the existing `uses:` scan.
 - **The order at each Go release:**

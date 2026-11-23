@@ -14,13 +14,13 @@ case "$file" in
 [% endif %]
 [% if 'python' in languages %]
   *.py)
-    uv run --project "$root/[[ py_dir ]]" --no-sync ruff format --quiet "$file" >/dev/null 2>&1
-    uv run --project "$root/[[ py_dir ]]" --no-sync ruff check --fix --quiet "$file" >/dev/null 2>&1
+    uv run --project "$root/[[ lang_dir.python ]]" --no-sync ruff format --quiet "$file" >/dev/null 2>&1
+    uv run --project "$root/[[ lang_dir.python ]]" --no-sync ruff check --fix --quiet "$file" >/dev/null 2>&1
     ;;
 [% endif %]
 [% if 'typescript' in languages %]
   *.ts|*.tsx|*.js|*.mjs|*.cjs|*.json|*.css)
-    pnpm --dir "$root/[[ ts_dir ]]" exec prettier --write --log-level silent "$file" >/dev/null 2>&1
+    pnpm --dir "$root/[[ lang_dir.typescript ]]" exec prettier --write --log-level silent "$file" >/dev/null 2>&1
     ;;
 [% endif %]
 [% if 'rust' in languages %]
@@ -31,7 +31,7 @@ case "$file" in
 [% if 'go' in languages %]
   *.go)
     if command -v golangci-lint >/dev/null 2>&1; then
-      golangci-lint fmt --config "$root/[[ go_dir ]]/.golangci.yml" "$file" >/dev/null 2>&1
+      golangci-lint fmt --config "$root/[[ lang_dir.go ]]/.golangci.yml" "$file" >/dev/null 2>&1
     else
       gofmt -w "$file" >/dev/null 2>&1  # one of the configured formatters, minus import grouping
     fi
