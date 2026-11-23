@@ -1,0 +1,40 @@
+[
+  {
+    "id": 4101,
+    "name": "main",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "example/demo-app",
+    "enforcement": "active",
+    "node_id": "RRS_lACqAAAAAAAAAAE",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/example/demo-app/rulesets/4101"
+      },
+      "html": {
+        "href": "https://github.com/example/demo-app/rules/4101"
+      }
+    },
+    "created_at": "2026-11-20T10:30:28.362+01:00",
+    "updated_at": "2026-11-20T10:30:28.362+01:00"
+  },
+  {
+    "id": 4102,
+    "name": "release-tags",
+    "target": "tag",
+    "source_type": "Repository",
+    "source": "example/demo-app",
+    "enforcement": "active",
+    "node_id": "RRS_lACqAAAAAAAAAAI",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/example/demo-app/rulesets/4102"
+      },
+      "html": {
+        "href": "https://github.com/example/demo-app/rules/4102"
+      }
+    },
+    "created_at": "2026-11-20T10:31:02.000+01:00",
+    "updated_at": "2026-11-20T10:31:02.000+01:00"
+  }
+]

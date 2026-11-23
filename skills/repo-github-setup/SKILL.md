@@ -13,7 +13,7 @@ Two jobs live here. **Setup** changes things on GitHub, so it always goes dry ru
 
 ### 1. Preconditions
 
-- `gh auth status` must show the account that is `github_owner` (or an admin of that org). If not, ask the user to run `gh auth login`; don't try to authenticate for them.
+- `gh auth status` must show the account that is `github_owner` (or an admin of that org). If not, ask the user to run `gh auth login`; don't try to authenticate for them. The script also needs `jq`.
 - Read `.copier-answers.yml` and `docs/SETUP.md` so you can tell the user what is about to happen in terms of *their* answers.
 - Make sure the generated files are what the user wants committed. The script makes the initial commit from everything in the folder.
 
@@ -57,6 +57,6 @@ Run the audit below. Everything the API can see should be `ok`; whatever is left
 bash <this skill's base directory>/scripts/audit-github.sh <repo-dir> [owner/repo]
 ```
 
-Read-only. It compares merge settings, Actions permissions, SHA pinning, Dependabot, public-repo security features, the `main` ruleset, release settings against what the answers imply, and the names of secrets against the repo's `.github/secret-requirements.json` (a repo generated before that file existed gets `?` for secrets until `copier update`), and lists what the API can't show (apps, SonarQube, trusted publishers). `?` means it couldn't read a setting, usually missing admin rights or a plan limit — not drift.
+Read-only. It runs the repo's own `./scripts/bootstrap-github.sh --check`, which compares the live settings with the repo's `.github/settings-requirements.json` (merge settings, Actions permissions, SHA pinning, Dependabot, public-repo security features, the whole `main` ruleset, release settings) and the secret names with `.github/secret-requirements.json`, and lists what the API can't show (apps, SonarQube, trusted publishers). Both files are rendered by the template for the repo's answers; don't work the expectations out from `.copier-answers.yml` yourself. Drift means bootstrap would change the setting if re-run. `?` means it couldn't read a setting, usually missing admin rights or a plan limit — not drift. Exit 2 means it can't audit: a repo rendered before settings requirements existed needs `copier update` first (the `repo-template-update` skill).
 
 For drift, the usual fix is re-running `./scripts/bootstrap-github.sh` (dry run first), since it is idempotent. Missing secrets go back to the manual steps above. If a setting was changed on purpose, suggest recording that as an ADR in `docs/decisions/` rather than leaving it as silent drift.

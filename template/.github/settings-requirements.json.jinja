@@ -1,0 +1,139 @@
+[#
+  The GitHub settings this repo needs (ADR 0005), with the answer conditions already evaluated:
+  an entry that doesn't apply to this repo's answers isn't here. scripts/bootstrap-github.sh applies
+  them, and its --check mode (which the repo-github-setup audit runs) reports drift from them.
+
+  Entry fields, a fixed set the script implements once each:
+    name         what the setting is, shown by bootstrap and the check
+    endpoint     GitHub REST path; {repo} stands for owner/name
+    method       how bootstrap writes it; no method means the check only reads it
+    body         what bootstrap sends (body_file: a repo file holding it instead)
+    expect       what the check compares, when GitHub's answer differs from the body (default: body)
+    key          the entry is the item of the endpoint's collection that matches this; bootstrap
+                 creates it with method, or updates it with PUT when it differs
+    when         {endpoint: expect}: check this entry only while those answers match
+    unavailable  why the plan or visibility rules this out: bootstrap warns, the check shows ?
+  An entry with no endpoint and no unavailable is a manual step the API can't show.
+  Drift means a difference re-running bootstrap would overwrite, so expect narrows the body only
+  where GitHub reports a setting differently from how it is written.
+#]
+[% set s = [] %]
+[% set _ = s.append({
+  "name": "Squash-only merges, PR title as commit message, auto-delete branches, auto-merge allowed, no wiki",
+  "endpoint": "repos/{repo}", "method": "PATCH",
+  "body": {"allow_squash_merge": true, "allow_merge_commit": false, "allow_rebase_merge": false,
+           "delete_branch_on_merge": true, "allow_auto_merge": true, "has_wiki": false,
+           "squash_merge_commit_title": "PR_TITLE", "squash_merge_commit_message": "PR_BODY"},
+}) %]
+[% set _ = s.append({
+  "name": "Visibility",
+  "endpoint": "repos/{repo}",
+  "expect": {"visibility": visibility},
+}) %]
+[% set _ = s.append({
+  "name": "Read-only default GITHUB_TOKEN, and Actions cannot approve pull requests",
+  "endpoint": "repos/{repo}/actions/permissions/workflow", "method": "PUT",
+  "body": {"default_workflow_permissions": "read", "can_approve_pull_request_reviews": false},
+}) %]
+[# No allowed_actions: a repo may keep a stricter allowlist, and bootstrap must not widen it.
+   GitHub's PUT leaves fields it isn't sent as they are (checked live, ADR 0005). #]
+[% set _ = s.append({
+  "name": "Actions enabled and pinned to full commit SHAs",
+  "endpoint": "repos/{repo}/actions/permissions", "method": "PUT",
+  "body": {"enabled": true, "sha_pinning_required": true},
+}) %]
+[% set allowed = ["ZeleMate/*", "astral-sh/setup-uv@*"] %]
+[% if has_governance %][% set _ = allowed.append("dependabot/fetch-metadata@*") %][% endif %]
+[% set _ = s.append({
+  "name": "A selected-actions allowlist allows what the workflows call (else ci.yml fails at startup with no logs)",
+  "endpoint": "repos/{repo}/actions/permissions/selected-actions",
+  "expect": {"patterns_allowed": allowed},
+  "when": {"repos/{repo}/actions/permissions": {"allowed_actions": "selected"}},
+}) %]
+[% set _ = s.append({
+  "name": "Dependabot alerts",
+  "endpoint": "repos/{repo}/vulnerability-alerts", "method": "PUT",
+}) %]
+[% set _ = s.append({
+  "name": "Dependabot security updates",
+  "endpoint": "repos/{repo}/automated-security-fixes", "method": "PUT",
+  "expect": {"enabled": true},
+}) %]
+[% if is_public %]
+[% set _ = s.append({
+  "name": "Secret scanning and push protection",
+  "endpoint": "repos/{repo}", "method": "PATCH",
+  "body": {"security_and_analysis": {"secret_scanning": {"status": "enabled"},
+                                     "secret_scanning_push_protection": {"status": "enabled"}}},
+}) %]
+[% set _ = s.append({
+  "name": "Private vulnerability reporting",
+  "endpoint": "repos/{repo}/private-vulnerability-reporting", "method": "PUT",
+  "expect": {"enabled": true},
+}) %]
+[% set _ = s.append({
+  "name": "CodeQL default setup",
+  "endpoint": "repos/{repo}/code-scanning/default-setup", "method": "PATCH",
+  "body": {"state": "configured", "query_suite": "default"},
+}) %]
+[% set _ = s.append({
+  "name": "Fork pull request workflows wait for approval for every outside contributor",
+  "endpoint": "repos/{repo}/actions/permissions/fork-pr-contributor-approval", "method": "PUT",
+  "body": {"approval_policy": "all_external_contributors"},
+}) %]
+[% else %]
+[% set _ = s.append({
+  "name": "GitHub secret scanning, push protection, private vulnerability reporting and CodeQL",
+  "unavailable": "private repos need a paid GitHub add-on for these; Semgrep, OSV-Scanner and Gitleaks run in CI instead",
+}) %]
+[% endif %]
+[% if has_governance %]
+[% set _ = s.append({
+  "name": "Ruleset main: PR required, ci-ok required, review threads resolved, no force-push or deletion, linear history",
+  "endpoint": "repos/{repo}/rulesets", "method": "POST", "key": {"name": "main"},
+  "body_file": ".github/rulesets/main.json",
+}) %]
+[% else %]
+[% set _ = s.append({
+  "name": "Ruleset main",
+  "unavailable": "rulesets on private repos need GitHub Pro; the gap is recorded in docs/THREAT_MODEL.md",
+}) %]
+[% endif %]
+[% if publishes %]
+[% set _ = s.append({
+  "name": "Immutable releases",
+  "endpoint": "repos/{repo}/immutable-releases", "method": "PUT",
+  "expect": {"enabled": true},
+}) %]
+[% if has_governance %]
+[% set _ = s.append({
+  "name": "Environment release, for custom branch policies only",
+  "endpoint": "repos/{repo}/environments/release", "method": "PUT",
+  "body": {"deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}},
+}) %]
+[% set _ = s.append({
+  "name": "Environment release deploys from main only",
+  "endpoint": "repos/{repo}/environments/release/deployment-branch-policies", "method": "POST",
+  "key": {"name": "main"},
+  "body": {"name": "main", "type": "branch"},
+}) %]
+[% else %]
+[% set _ = s.append({
+  "name": "Environment release",
+  "unavailable": "environments on private repos need GitHub Pro",
+}) %]
+[% endif %]
+[% endif %]
+[# Manual steps the API can't show. Go has no registry: its release is the tag. #]
+[% if 'coderabbit' in ai_reviewers %]
+[% set _ = s.append({"name": "CodeRabbit GitHub App installed on the repo"}) %]
+[% endif %]
+[% if quality_platform == 'sonarqube-cloud' %]
+[% set _ = s.append({"name": "SonarQube Cloud project imported, with Automatic Analysis on"}) %]
+[% endif %]
+[% if publishes and languages | reject('equalto', 'go') | list %]
+[% set _ = s.append({"name": "Trusted publisher registered on each registry"}) %]
+[% endif %]
+[% set _ = s.append({"name": "Dependabot malware alerts (Settings, Advanced Security)"}) %]
+[% set _ = s.append({"name": "Pre-commit hooks installed in each clone (uvx pre-commit install)"}) %]
+[[ {"_comment": "Written by the repo template (ADR 0005); refreshed by copier update. scripts/bootstrap-github.sh applies these settings and, with --check, reports drift from them.", "settings": s} | tojson(indent=2) ]]

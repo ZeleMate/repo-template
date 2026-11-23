@@ -35,7 +35,7 @@ if command -v actionlint >/dev/null; then
 fi
 command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity medium "$REPO/.github/workflows"
 [[ -f "$REPO/scripts/bootstrap-github.sh" ]] && check "bootstrap syntax" bash -n "$REPO/scripts/bootstrap-github.sh"
-check "json valid" sh -c "for f in \"$REPO\"/.claude/settings.json \"$REPO\"/.github/rulesets/main.json \"$REPO\"/release-please-config.json \"$REPO\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
+check "json valid" sh -c "for f in \"$REPO\"/.claude/settings.json \"$REPO\"/.github/rulesets/main.json \"$REPO\"/.github/settings-requirements.json \"$REPO\"/.github/secret-requirements.json \"$REPO\"/release-please-config.json \"$REPO\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
 [[ -f "$REPO/.github/tools/pyproject.toml" ]] && check "ci tools lock" uv lock --check --project "$REPO/.github/tools"
 
 # CI runs pre-commit, the merge-gate check and Semgrep from the central workflow repo's hash-locked

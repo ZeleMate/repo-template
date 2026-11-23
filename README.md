@@ -36,6 +36,9 @@ cd my-project
 ./scripts/bootstrap-github.sh
 
 # 3. Do the manual steps it prints (also in docs/SETUP.md)
+
+# Later: is anything off? (read-only)
+./scripts/bootstrap-github.sh --check
 ```
 
 `--trust` is needed because the template runs local post-generation tasks: `uv lock`, `pnpm install --lockfile-only`, `cargo generate-lockfile` and `chmod`. Nothing touches GitHub until you run the bootstrap script.
@@ -111,4 +114,4 @@ A weekly workflow in each generated repo opens an issue when a new template tag 
 - **Bump pinned versions deliberately.** Action SHAs, hook revs, the gitleaks/OSV-Scanner checksums and Semgrep live in the template files. Dependabot keeps them current in generated repos; update the template itself quarterly.
 - **Test changes:** `./scripts/test-template.sh` generates every language combination and runs `skills/repo-new/scripts/verify-generated.sh` (actionlint, zizmor, pre-commit, Semgrep, osv-scanner and the real toolchains) on each, the same checker the skills use on real repos. CI runs it on every PR and weekly.
 - **Central workflow pin:** CI and security jobs live in `ZeleMate/workflows`. Move the template's pin with `./scripts/bump-central-pin.sh vX.Y.Z`; `./scripts/check-central-pins.sh` fails if the calls don't all pin one SHA. Generated repos get minor and patch central releases from Dependabot, and majors from a template release.
-- **Keep the skills in step.** A new question goes in `skills/repo-new/references/choosing-answers.md` as well as here; a new secret is one entry in `includes/secrets.jinja`, which SETUP.md, secrets.md, the bootstrap script and the generated repo's `.github/secret-requirements.json` (read by the audit) are rendered from, and `test-template.sh` fails if a workflow reads a secret that isn't listed there (ADR 0003); a new GitHub setting goes in `docs/SETUP.md.jinja`, the bootstrap script, and `skills/repo-github-setup/scripts/audit-github.sh`. Bump `.claude-plugin/plugin.json`'s version when skills change.
+- **Keep the skills in step.** A new question goes in `skills/repo-new/references/choosing-answers.md` as well as here; a new secret is one entry in `includes/secrets.jinja`, which SETUP.md, secrets.md, the bootstrap script and the generated repo's `.github/secret-requirements.json` (read by the audit) are rendered from, and `test-template.sh` fails if a workflow reads a secret that isn't listed there (ADR 0003); a new GitHub setting is one entry in `template/.github/settings-requirements.json.jinja`, which the bootstrap script applies and checks (`--check`, which the audit runs), plus its line in `docs/SETUP.md.jinja`; `scripts/test-github-settings.sh` tests both against recorded API responses (ADR 0005). Bump `.claude-plugin/plugin.json`'s version when skills change.
