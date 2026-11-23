@@ -114,6 +114,9 @@ gen multi -d languages='[python, typescript, rust, go]' -d visibility=private -d
 verify multi
 check "multi: the Go module path ends in /go, tagged go/vX.Y.Z" sh -c "cd \"$OUT/multi\" && head -1 go/go.mod | grep -qx 'module github.com/example/demo-app/go' && python3 -c 'import json, sys; p = json.load(open(\"release-please-config.json\"))[\"packages\"]; g = p.pop(\"go\"); sys.exit(not (g[\"component\"] == \"go\" and g[\"tag-separator\"] == \"/\" and g[\"bump-minor-pre-major\"] and not any(\"bump-minor-pre-major\" in o or \"tag-separator\" in o for o in p.values())))'"
 check "multi: sbom waits for publish-go" sh -c "grep -q 'needs: \\[release-please, publish-go\\]' \"$OUT/multi/.github/workflows/release.yml\""
+# A crate with no licence fails cargo deny, so a proprietary one names its licence and deny.toml
+# allows it for that crate only. (cargo deny itself runs only where cargo is installed.)
+check "multi: the proprietary Rust crate is licensed for cargo deny" sh -c "cd \"$OUT/multi/rust\" && grep -qx 'license = \"LicenseRef-Proprietary\"' Cargo.toml && grep -qx 'crate = \"demo-app\"' deny.toml && grep -qx 'allow = \\[\"LicenseRef-Proprietary\"\\]' deny.toml && ! grep -q LicenseRef \"$OUT/rs/deny.toml\" \"$OUT/rs/Cargo.toml\""
 
 # Baseline repos (ADR 0002): no managed language, so none of the left-out files may render.
 check_baseline() {
