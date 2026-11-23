@@ -16,7 +16,7 @@ The template renders the GitHub settings a repo needs into `.github/settings-req
 
 - **Drift means "re-running bootstrap would change it".** The check compares exactly what apply writes, so `has_wiki`, the squash commit message and the whole `main` ruleset are now checked, not four parts of it.
 - **One comparison, `covers`:** objects by key, recursively; arrays by "every wanted element is covered by some element"; scalars by equality. An HTTP 404 is drift ("missing"); any other failed read, or a key absent from GitHub's answer, is `?`.
-- **Bootstrap no longer writes `allowed_actions: all`.** It overwrote the stricter allowlists the audit accepts (#31). The check still requires a `selected` allowlist to allow what the workflows call.
+- **Bootstrap no longer writes `allowed_actions: all`.** It overwrote the stricter allowlists the audit accepts (#31). The check still requires a `selected` allowlist to allow what the workflows call. `PUT actions/permissions` leaves out-of-body fields as they are, so a repo keeps its `selected` allowlist and its patterns. This was checked live on 2026-11-23 on a private throwaway repo. The same holds for `sha_pinning_required`.
 - **The GitHub port is two functions** in the script, `gh_read` and `gh_write`, the only callers of `gh api`. Tests put a fake `gh` on `PATH` that serves recorded API responses (`scripts/test-github-settings.sh`); dry-run is the third adapter for writes.
 - **A repo without the file can't be audited** (exit 2: "run copier update"), with no fallback to the old logic, as in ADR 0003.
 - **Bootstrap needs jq.** It ships with macOS and GitHub's runners.

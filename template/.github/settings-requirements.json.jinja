@@ -35,7 +35,8 @@
   "endpoint": "repos/{repo}/actions/permissions/workflow", "method": "PUT",
   "body": {"default_workflow_permissions": "read", "can_approve_pull_request_reviews": false},
 }) %]
-[# No allowed_actions: a repo may keep a stricter allowlist, and bootstrap must not widen it. #]
+[# No allowed_actions: a repo may keep a stricter allowlist, and bootstrap must not widen it.
+   GitHub's PUT leaves fields it isn't sent as they are (checked live, ADR 0005). #]
 [% set _ = s.append({
   "name": "Actions enabled and pinned to full commit SHAs",
   "endpoint": "repos/{repo}/actions/permissions", "method": "PUT",
