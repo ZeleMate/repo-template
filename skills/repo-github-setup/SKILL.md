@@ -13,7 +13,7 @@ Two jobs live here. **Setup** changes things on GitHub, so it always goes dry ru
 
 ### 1. Preconditions
 
-- `gh auth status` must show the account that is `github_owner` (or an admin of that org). If not, ask the user to run `gh auth login`; don't try to authenticate for them.
+- `gh auth status` must show the account that is `github_owner` (or an admin of that org). If not, ask the user to run `gh auth login`; don't try to authenticate for them. The script also needs `jq`.
 - Read `.copier-answers.yml` and `docs/SETUP.md` so you can tell the user what is about to happen in terms of *their* answers.
 - Make sure the generated files are what the user wants committed. The script makes the initial commit from everything in the folder.
 
@@ -42,7 +42,7 @@ The script ends by printing the manual checklist from `docs/SETUP.md`. Go throug
 - **Secrets are typed by the user, not by you.** The generated `.claude/settings.json` denies `gh secret *` to Claude on purpose, so a token never passes through the conversation or the transcript. Give the command and let the user run it in their terminal.
 - **Which secrets, and how to create each:** the repo's `.github/secret-requirements.json` lists them, and `docs/SETUP.md` has the step for each one. Don't work them out from the answers yourself. A repo that won't release can run `gh workflow disable release.yml` instead of creating `RELEASE_PLEASE_TOKEN`; the audit then doesn't ask for it.
 - **SonarQube Cloud:** install its GitHub App and import the repo. Leave Automatic Analysis on; it needs no CI job or `SONAR_TOKEN`.
-- **Trusted publishing** (Python, TypeScript and Rust only; Go has no registry, and its binaries go on the GitHub release with the workflow's own token): for a brand-new package use the registry's "pending publisher" form, with workflow `release.yml` and (if public or Pro) environment `release`.
+- **Trusted publishing**, on each registry the repo's `.github/language-profiles.json` names (`registry` per language; `null` means none, as for Go, whose binaries go on the GitHub release with the workflow's own token): for a brand-new package use the registry's "pending publisher" form, with workflow `release.yml` and (if public or Pro) environment `release`.
 - **Agentic apps:** `docs/THREAT_MODEL.md` §5 plus `docs/agent-policy.md` filled in before the first agent feature ships.
 - **Malware alerts** are a UI-only toggle under Settings → Advanced Security.
 - `uvx pre-commit install` in the local clone.
@@ -57,6 +57,6 @@ Run the audit below. Everything the API can see should be `ok`; whatever is left
 bash <this skill's base directory>/scripts/audit-github.sh <repo-dir> [owner/repo]
 ```
 
-Read-only. It compares merge settings, Actions permissions, SHA pinning, Dependabot, public-repo security features, the `main` ruleset, release settings against what the answers imply, and the names of secrets against the repo's `.github/secret-requirements.json` (a repo generated before that file existed gets `?` for secrets until `copier update`), and lists what the API can't show (apps, SonarQube, trusted publishers). `?` means it couldn't read a setting, usually missing admin rights or a plan limit — not drift.
+Read-only. It runs the repo's own `./scripts/bootstrap-github.sh --check`, which compares the live settings with the repo's `.github/settings-requirements.json` (merge settings, Actions permissions, SHA pinning, Dependabot, public-repo security features, the whole `main` ruleset, release settings) and the secret names with `.github/secret-requirements.json`, and lists what the API can't show (apps, SonarQube, trusted publishers). Both files are rendered by the template for the repo's answers; don't work the expectations out from `.copier-answers.yml` yourself. Drift means bootstrap would change the setting if re-run. `?` means it couldn't read a setting, usually missing admin rights or a plan limit — not drift. Exit 2 means it can't audit: a repo rendered before settings requirements existed needs `copier update` first (the `repo-template-update` skill).
 
 For drift, the usual fix is re-running `./scripts/bootstrap-github.sh` (dry run first), since it is idempotent. Missing secrets go back to the manual steps above. If a setting was changed on purpose, suggest recording that as an ADR in `docs/decisions/` rather than leaving it as silent drift.

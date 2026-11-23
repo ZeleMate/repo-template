@@ -6,6 +6,9 @@ rust-version = "[[ rust_msrv ]]"
 description = "[[ description ]]"
 [% if is_oss %]
 license = "[[ license ]]"
+[% else %]
+# Not an SPDX licence: cargo-deny allows it for this crate only (deny.toml).
+license = "LicenseRef-Proprietary"
 [% endif %]
 [% if is_public %]
 repository = "https://github.com/[[ github_owner ]]/[[ repo_name ]]"

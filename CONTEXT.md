@@ -16,12 +16,20 @@ _Avoid_: child repo, downstream repo, project
 A language named in the `languages` answer, for which the template writes and updates the toolchain, CI call and release config.
 _Avoid_: supported language, stack
 
+**Language profile**:
+The facts the template holds about one managed language that more than one generated file needs: its toolchain, lock step, registry, Dependabot ecosystem and the checks a change must pass. Every file that names the language is written from it, and a generated repo carries the profiles of its own languages.
+_Avoid_: language config, toolchain settings, stack definition
+
+**Check**:
+One command a change must pass in a managed language, run by CI and by the local verifier, and documented for contributors; it may have a fixing form, which is what contributors run.
+_Avoid_: dev command, lint step, CI step
+
 **Version floor**:
 The oldest version of a managed language that a generated repo supports, taken from its Copier answer; CI tests every minor from it up to the newest known version.
 _Avoid_: minimum version, MSRV
 
 **Newest known version**:
-The newest release of a managed language that the current template release knows about; it tops the CI version list and moves only with a template release.
+The newest release of a managed language that the current template release knows about; it tops the CI version list and moves only with a template release. Only Python and Go have one: a TypeScript repo tests the one Node LTS major it picked, and a Rust repo builds with its own pinned toolchain.
 _Avoid_: latest, current
 
 **Baseline repo**:
@@ -55,3 +63,11 @@ _Avoid_: ci-ok (that is its job name), required check, status gate
 **Secret requirement**:
 A credential a generated repo needs, with where it is stored, which workflow or tool uses it, when it applies and how often to rotate it.
 _Avoid_: secret list, token manifest, required secrets
+
+**Settings requirement**:
+A GitHub setting a generated repo needs, with the value bootstrap writes, the value the check expects, and whether its plan and visibility allow it at all.
+_Avoid_: desired state, hardened settings, baseline (that is a repo with no managed language)
+
+**Drift**:
+Where a generated repo's live GitHub state misses its settings or secret requirements: a setting that re-running bootstrap would overwrite, or a needed secret that isn't set.
+_Avoid_: misconfiguration, deviation

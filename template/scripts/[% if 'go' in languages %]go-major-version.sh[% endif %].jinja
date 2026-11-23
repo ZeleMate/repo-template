@@ -7,8 +7,8 @@
 set -eu
 
 manifest=.release-please-manifest.json
-gomod=[[ 'go.mod' if go_dir == '.' else go_dir ~ '/go.mod' ]]
-key='"[[ go_dir ]]"'
+gomod=[[ 'go.mod' if lang_dir.go == '.' else lang_dir.go ~ '/go.mod' ]]
+key='"[[ lang_dir.go ]]"'
 [% raw %]
 
 line=$(grep -F "$key:" "$manifest" || true)

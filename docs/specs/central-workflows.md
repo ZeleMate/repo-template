@@ -58,7 +58,7 @@ _From [How do caller workflows pass settings to central CI?](https://github.com/
 | `python_version` | `python-versions` input: a JSON list of minor versions that Copier writes, so no job computes the matrix |
 | `python_type_checker` | `type-checker` input (`pyright` or `mypy`) |
 | `go_version` | `go-versions` input: a JSON list of minor versions from the version floor to the newest known version, which Copier writes ([Go spec](go.md) section 1) |
-| `py_dir`, `ts_dir`, `rs_dir`, `go_dir` | a working-directory input on each language workflow |
+| `lang_dir` (one folder per language) | a working-directory input on each language workflow |
 | `ts_linter`, `rust_msrv`, `go_module` | no input: CI never reads them |
 
 Changing an input name later costs a central major release (section 7). The names as built:

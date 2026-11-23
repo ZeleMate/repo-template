@@ -1,0 +1,57 @@
+{
+  "id": 900000001,
+  "node_id": "R_kgDOAAAAAQ",
+  "name": "demo-app",
+  "full_name": "example/demo-app",
+  "private": false,
+  "owner": {
+    "login": "example",
+    "id": 1000001,
+    "type": "User"
+  },
+  "html_url": "https://github.com/example/demo-app",
+  "description": "",
+  "fork": false,
+  "url": "https://api.github.com/repos/example/demo-app",
+  "visibility": "public",
+  "default_branch": "main",
+  "has_issues": true,
+  "has_projects": true,
+  "has_wiki": false,
+  "has_discussions": false,
+  "allow_squash_merge": true,
+  "allow_merge_commit": false,
+  "allow_rebase_merge": false,
+  "allow_auto_merge": true,
+  "delete_branch_on_merge": true,
+  "allow_update_branch": false,
+  "use_squash_pr_title_as_default": true,
+  "squash_merge_commit_message": "PR_BODY",
+  "squash_merge_commit_title": "PR_TITLE",
+  "merge_commit_message": "PR_TITLE",
+  "merge_commit_title": "MERGE_MESSAGE",
+  "security_and_analysis": {
+    "dependabot_security_updates": {
+      "status": "enabled"
+    },
+    "secret_scanning": {
+      "status": "enabled"
+    },
+    "secret_scanning_non_provider_patterns": {
+      "status": "disabled"
+    },
+    "secret_scanning_push_protection": {
+      "status": "enabled"
+    },
+    "secret_scanning_validity_checks": {
+      "status": "disabled"
+    }
+  },
+  "permissions": {
+    "admin": true,
+    "maintain": true,
+    "push": true,
+    "triage": true,
+    "pull": true
+  }
+}

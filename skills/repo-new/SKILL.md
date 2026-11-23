@@ -46,7 +46,7 @@ uvx copier copy --trust --defaults --data-file <answers.yml> --vcs-ref <tag> <so
 bash <this skill's base directory>/scripts/verify-generated.sh <destination>
 ```
 
-It reads `.copier-answers.yml` and runs what CI runs: actionlint and zizmor (if installed), JSON validity, pre-commit, a check for unrendered `[[ ]]`/`[% %]` tags, the mock evals for agentic apps, then per language uv/ruff/pyright-or-mypy/pytest, pnpm/prettier/lint/typecheck/vitest/build, cargo fmt/clippy/test, and `go mod tidy -diff`/`go vet`/`go build`/`go test -race` plus golangci-lint fmt and run (if installed). Before `git init`, pre-commit is skipped; that's expected. If it prints a note about `author_email`, pass it on: that address is where vulnerability reports go.
+It reads `.copier-answers.yml` and runs what CI runs: actionlint and zizmor (if installed), JSON validity, pre-commit, a check for unrendered `[[ ]]`/`[% %]` tags, the mock evals for agentic apps, then each managed language's checks from `.github/language-profiles.json`: the commands `AGENTS.md` documents, in their checking form. A language whose toolchain is missing, or a check whose tool is (golangci-lint, cargo-nextest, cargo-deny), is skipped with a note. Before `git init`, pre-commit is skipped; that's expected. If it prints a note about `author_email`, pass it on: that address is where vulnerability reports go.
 
 A failure here is a template bug or a missing tool, not something to patch in the generated repo by hand. Report the failing check with its output; if it's a template bug, say so and suggest fixing it in the template (the `repo-template-maintain` skill) so every future repo gets the fix.
 

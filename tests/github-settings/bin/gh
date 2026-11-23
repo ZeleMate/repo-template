@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# A stand-in for gh that serves recorded GitHub API responses. Tests only (scripts/test-github-settings.sh).
+#   GH_FIXTURES=<dir>  GET <endpoint> prints <dir>/<endpoint>.json (query string ignored). With
+#                      <endpoint>.status holding an HTTP code instead, it fails as gh does; with
+#                      neither, it fails with HTTP 404.
+#   GH_LOG=<file>      every write is appended as one JSON line: {method, endpoint, body}.
+set -euo pipefail
+: "${GH_FIXTURES:?set GH_FIXTURES to a recorded-responses directory}"
+log() { if [[ -n "${GH_LOG:-}" ]]; then jq -cn "$@" >>"$GH_LOG"; fi; }
+
+cmd=${1:-}; shift || true
+case "$cmd" in
+  auth) exit 0 ;;
+  repo)
+    case "${1:-}" in
+      view) [[ -f "$GH_FIXTURES/repos/$2.json" ]]; exit ;;
+      create) log --arg r "$2" '{method: "CREATE", endpoint: $r, body: null}'; exit 0 ;;
+    esac ;;
+  api) ;;
+  *) echo "fake gh: unsupported command '$cmd'" >&2; exit 1 ;;
+esac
+
+method=GET ep="" input="" jqx=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -X) method=$2; shift 2 ;;
+    -H) shift 2 ;;
+    --input) input=$2; shift 2 ;;
+    --jq) jqx=$2; shift 2 ;;
+    -f|-F) echo "fake gh: field flags are not recorded; send a JSON body with --input" >&2; exit 1 ;;
+    -*) echo "fake gh: unsupported flag '$1'" >&2; exit 1 ;;
+    *) ep=$1; shift ;;
+  esac
+done
+
+if [[ "$method" != GET ]]; then
+  body=null
+  if [[ -n "$input" ]]; then
+    if [[ "$input" = - ]]; then body=$(jq -c .); else body=$(jq -c . "$input"); fi
+  fi
+  log --arg m "$method" --arg e "$ep" --argjson b "$body" '{method: $m, endpoint: $e, body: $b}'
+  echo '{}'; exit 0
+fi
+
+f="$GH_FIXTURES/${ep%%\?*}"
+if [[ -f "$f.status" ]]; then
+  code=$(cat "$f.status"); echo "{\"message\":\"recorded failure\",\"status\":\"$code\"}"; echo "gh: recorded failure (HTTP $code)" >&2; exit 1
+fi
+if [[ ! -f "$f.json" ]]; then
+  echo '{"message":"Not Found","status":"404"}'; echo "gh: Not Found (HTTP 404)" >&2; exit 1
+fi
+if [[ -n "$jqx" ]]; then jq -r "$jqx" "$f.json"; else cat "$f.json"; fi

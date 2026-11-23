@@ -1,9 +1,0 @@
-[#
-  The newest Go minor version the template knows. It sits outside template/, so Copier never
-  renders it; files import it with
-    [% from 'includes/go.jinja' import go_newest %]
-  ci.yml tests every minor from go_version up to it, and release.yml builds binaries with it.
-  Raise it only after the central golangci-lint pin is built with that Go and released:
-  golangci-lint can't lint code for a Go newer than the one it was built with.
-#]
-[% set go_newest = 27 %]

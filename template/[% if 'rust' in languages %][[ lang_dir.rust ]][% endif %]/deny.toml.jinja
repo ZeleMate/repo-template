@@ -18,6 +18,14 @@ allow = [
   "Zlib",
 ]
 confidence-threshold = 0.9
+[% if not is_oss %]
+
+# This crate's own licence. A crate with no licence fails cargo-deny as unlicensed, so the
+# proprietary licence is named, and allowed for this crate only, never for a dependency.
+[% raw %][[licenses.exceptions]][% endraw +%]
+crate = "[[ project_slug ]]"
+allow = ["LicenseRef-Proprietary"]
+[% endif %]
 
 [bans]
 multiple-versions = "warn"

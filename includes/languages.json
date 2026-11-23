@@ -1,0 +1,68 @@
+{
+  "python": {
+    "name": "Python",
+    "newest": "3.14",
+    "toolchain": "uv",
+    "lock": "uv lock",
+    "registry": "PyPI",
+    "release_type": "python",
+    "dependabot": {"ecosystem": "uv", "group": "python-minor-patch"},
+    "checks": [
+      {"name": "install", "run": "uv sync --locked"},
+      {"name": "format", "run": "uv run ruff format --check .", "fix": "uv run ruff format ."},
+      {"name": "lint", "run": "uv run ruff check .", "fix": "uv run ruff check --fix ."},
+      {"name": "typecheck", "run": "uv run pyright -p pyproject.toml", "if": {"python_type_checker": "pyright"}},
+      {"name": "typecheck", "run": "uv run mypy", "if": {"python_type_checker": "mypy"}},
+      {"name": "test", "run": "uv run pytest --cov"},
+      {"name": "build", "run": "uv build"}
+    ]
+  },
+  "typescript": {
+    "name": "TypeScript",
+    "toolchain": "pnpm",
+    "lock": "pnpm install --lockfile-only",
+    "registry": "npm",
+    "release_type": "node",
+    "dependabot": {"ecosystem": "npm", "group": "npm-minor-patch"},
+    "checks": [
+      {"name": "install", "run": "pnpm install --frozen-lockfile"},
+      {"name": "format", "run": "pnpm run format:check", "fix": "pnpm run format"},
+      {"name": "lint", "run": "pnpm run lint"},
+      {"name": "typecheck", "run": "pnpm run typecheck"},
+      {"name": "test", "run": "pnpm run test:coverage"},
+      {"name": "build", "run": "pnpm run build"}
+    ]
+  },
+  "rust": {
+    "name": "Rust",
+    "toolchain": "cargo",
+    "lock": "cargo generate-lockfile",
+    "registry": "crates.io",
+    "release_type": "rust",
+    "dependabot": {"ecosystem": "cargo", "group": "cargo-minor-patch"},
+    "checks": [
+      {"name": "format", "run": "cargo fmt --check", "fix": "cargo fmt"},
+      {"name": "lint", "run": "cargo clippy --all-targets --locked -- -D warnings"},
+      {"name": "test", "run": "cargo nextest run --locked", "tool": "cargo-nextest"},
+      {"name": "doctest", "run": "cargo test --doc --locked"},
+      {"name": "deny", "run": "cargo deny check", "tool": "cargo-deny"}
+    ]
+  },
+  "go": {
+    "name": "Go",
+    "newest": "1.27",
+    "toolchain": "go",
+    "lock": "go mod tidy",
+    "registry": null,
+    "release_type": "go",
+    "dependabot": {"ecosystem": "gomod", "group": "gomod-minor-patch"},
+    "checks": [
+      {"name": "format", "run": "golangci-lint fmt --diff", "fix": "golangci-lint fmt", "tool": "golangci-lint"},
+      {"name": "lint", "run": "golangci-lint run", "tool": "golangci-lint"},
+      {"name": "vet", "run": "go vet ./..."},
+      {"name": "tidy", "run": "go mod tidy -diff", "fix": "go mod tidy"},
+      {"name": "build", "run": "go build ./..."},
+      {"name": "test", "run": "go test -race ./..."}
+    ]
+  }
+}

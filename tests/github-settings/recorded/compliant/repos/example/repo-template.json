@@ -1,0 +1,8 @@
+{
+  "id": 900000002,
+  "name": "repo-template",
+  "full_name": "example/repo-template",
+  "private": false,
+  "visibility": "public",
+  "default_branch": "main"
+}

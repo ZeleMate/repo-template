@@ -61,7 +61,7 @@ For each conflict, understand both sides before choosing:
 - The repo side is usually a deliberate local change (an extra CI job, a project-specific ignore). Keep it too; combine rather than pick one.
 - If a local change and a template change contradict each other (for example the template now forbids something the repo relies on), ask the user. If they keep the local way, suggest an ADR in `docs/decisions/` so the next update's reviewer knows it's on purpose.
 
-Lockfiles: don't hand-merge them. Take one side and regenerate with the package manager (`uv lock`, `pnpm install --lockfile-only`, `cargo generate-lockfile`, `go mod tidy` for `go.sum`).
+Lockfiles: don't hand-merge them. Take one side and regenerate it with the language's `lock` command, run in its `dir`, both in `.github/language-profiles.json`.
 
 ## 5. Verify and open a PR
 

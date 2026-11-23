@@ -1,0 +1,67 @@
+[#
+  The language profiles: everything the template knows about each managed language that more
+  than one file needs (ADR 0006). The facts live in includes/languages.json, one object per
+  language keyed by its `languages` id, so shell reads them with jq (`jq -r .go.newest
+  includes/languages.json`) and never parses Jinja. This file only decodes them for the
+  templates, which import
+    [% from 'includes/languages.jinja' import profiles, managed, newest with context %]
+  Both files sit outside template/, so Copier never renders them.
+
+  The id is also the language's folder in a multi-language repo, its CI job in ci.yml (the merge
+  gate lists `needs` by id), its release-please component and its release.yml outputs. There is
+  no separate column for any of those: a new language picks an id that works as all four.
+
+  Fields (all strings unless noted):
+    name          display name (AGENTS.md headings)
+    newest        the newest known version, Python and Go only: the top of the CI version list.
+                  TypeScript tests the Node LTS major the repo picks (node_version) and Rust
+                  builds with its pinned toolchain (rust_toolchain), both answers. Raise Go only
+                  after the central golangci-lint pin is built with that Go and released:
+                  golangci-lint can't lint code for a Go newer than the one it was built with
+                  (ADR 0004).
+    toolchain     the binary the language's checks and lock need; verify-generated.sh skips the
+                  language without it, and the copy-time lock step prints a note instead
+    lock          the command that writes the lockfile from the manifest
+    registry      where `publishes` sends packages (docs/SETUP.md); null when there is none (Go:
+                  the tag is the release)
+    release_type  release-please's release-type
+    dependabot    {ecosystem, group}: the Dependabot entry for the language's folder
+    checks        list of {name, run, fix?, tool?, if?}, in the order to run them. `run` is what
+                  CI and verify-generated.sh run; `fix` is the fixing form AGENTS.md shows
+                  instead, when there is one. `tool`: verify skips the check when that binary
+                  is missing. `if`: {"<question>": "<answer>"}, the check applies only when
+                  every listed answer matches.
+                  Python's pyright check passes `-p pyproject.toml` because a pyrightconfig.json
+                  in any parent folder would otherwise win over the repo's own settings.
+
+  Exports:
+    profiles  every managed language's profile, in this file's order
+    newest    {language: newest known version}, only for languages that have one
+    managed   this repo's languages, in this file's order, each profile plus `id` and `dir`,
+              with `checks` already narrowed by `if`. Needs `with context`.
+
+  The JSON is read as a Jinja template before it is decoded, so it must hold no `[[`, `[%` or
+  `[#` (no nested arrays).
+#]
+[% set _raw %][% include 'includes/languages.json' %][% endset %]
+[% set profiles = _raw | from_json %]
+[% set newest = {} %]
+[% set managed = {} %]
+[% for id, p in profiles.items() %]
+[% if p.newest is defined %]
+[% set _ = newest.update({id: p.newest}) %]
+[% endif %]
+[% if languages is defined and id in languages %]
+[% set checks = [] %]
+[% for c in p.checks %]
+[% set ns = namespace(applies=true) %]
+[% for question, answer in (c.if or {}).items() %]
+[% if _copier_answers[question] != answer %][% set ns.applies = false %][% endif %]
+[% endfor %]
+[% if ns.applies %][% set _ = checks.append(c) %][% endif %]
+[% endfor %]
+[% set entry = dict(p) %]
+[% set _ = entry.update({"id": id, "dir": lang_dir[id], "checks": checks}) %]
+[% set _ = managed.update({id: entry}) %]
+[% endif %]
+[% endfor %]

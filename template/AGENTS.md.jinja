@@ -11,55 +11,20 @@ Run these before saying a change is done. CI runs the same ones.
 The template manages no language toolchain in this repo. Its own checks are the jobs in `.github/workflows/ci-local.yml`: run the commands those jobs run. List them here once they exist.
 
 [% endif %]
-[% if 'python' in languages %]
-### Python[% if multi_lang %] (`[[ py_dir ]]/`)[% endif +%]
+[% from 'includes/languages.jinja' import managed with context %]
+[# One block per managed language, from its profile's checks (includes/languages.json). #]
+[% for l in managed.values() %]
+### [[ l.name ]][% if multi_lang %] (`[[ l.dir ]]/`)[% endif +%]
 
 ```bash
-[% if multi_lang %]cd [[ py_dir ]]
+[% if multi_lang %]cd [[ l.dir ]]
 [% endif %]
-uv sync --locked                 # install from uv.lock
-uv run ruff format . && uv run ruff check --fix .
-uv run [[ 'pyright' if python_type_checker == 'pyright' else 'mypy' ]]
-uv run pytest --cov
+[% for c in l.checks %]
+[[ c.fix or c.run ]]
+[% endfor %]
 ```
 
-[% endif %]
-[% if 'typescript' in languages %]
-### TypeScript[% if multi_lang %] (`[[ ts_dir ]]/`)[% endif +%]
-
-```bash
-[% if multi_lang %]cd [[ ts_dir ]]
-[% endif %]
-pnpm install --frozen-lockfile
-pnpm run format && pnpm run lint && pnpm run typecheck
-pnpm run test
-```
-
-[% endif %]
-[% if 'rust' in languages %]
-### Rust[% if multi_lang %] (`[[ rs_dir ]]/`)[% endif +%]
-
-```bash
-[% if multi_lang %]cd [[ rs_dir ]]
-[% endif %]
-cargo fmt && cargo clippy --all-targets --locked -- -D warnings
-cargo nextest run --locked && cargo test --doc --locked
-cargo deny check
-```
-
-[% endif %]
-[% if 'go' in languages %]
-### Go[% if multi_lang %] (`[[ go_dir ]]/`)[% endif +%]
-
-```bash
-[% if multi_lang %]cd [[ go_dir ]]
-[% endif %]
-golangci-lint fmt && golangci-lint run
-go vet ./... && go mod tidy -diff
-go test -race ./...
-```
-
-[% endif %]
+[% endfor %]
 
 Repo-wide hooks: `uvx pre-commit run --all-files` (or `prek run --all-files`).
 

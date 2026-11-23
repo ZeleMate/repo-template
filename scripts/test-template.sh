@@ -32,8 +32,23 @@ check() { # name, command... (an assertion about the template, beyond what verif
   if "$@" >"$OUT/.log" 2>&1; then echo "    ok   $name"; else echo "    FAIL $name"; sed 's/^/         /' "$OUT/.log" | tail -25; failed+=("$name"); fi
 }
 
-verify() { # answer set: run the generated-repo checker on it
-  bash "$VERIFY" "$OUT/$1" || failed+=("$1 (verify-generated)")
+verify() { # answer set: run the generated-repo checker on it (output kept in $OUT/<set>.verify.log)
+  bash "$VERIFY" "$OUT/$1" | tee "$OUT/$1.verify.log" || failed+=("$1 (verify-generated)")
+}
+ran() { # answer set, check lines...: verify ran each language-profile check and it passed (not skipped)
+  local set=$1; shift
+  for line; do grep -qF "    ok   $line" "$OUT/$set.verify.log" || { echo "verify didn't pass: $line"; return 1; }; done
+}
+
+# The newest known versions (the language profiles in includes/languages.json). The expected CI version lists are
+# computed from them and from each answer set's floor, never restated here.
+newest() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]]["newest"])' "$TEMPLATE/includes/languages.json" "$1"; }
+PY_NEWEST=$(newest python); GO_NEWEST=$(newest go)
+ci_versions() { # floor, newest: every minor from the floor up to the newest (the floor alone if it is newer)
+  python3 -c 'import sys; major, lo = sys.argv[1].split("."); hi = int(sys.argv[2].split(".")[1]); print("[" + ", ".join(f"\"{major}.{m}\"" for m in range(int(lo), max(int(lo), hi) + 1)) + "]")' "$1" "$2"
+}
+answer() { # answer set, question: the answer Copier recorded in .copier-answers.yml
+  sed -nE "s/^$2: '?([^']*)'?$/\1/p" "$OUT/$1/.copier-answers.yml"
 }
 
 gen() { # dir, extra copier -d args...
@@ -49,9 +64,13 @@ echo "==> python, public, agentic, publishes, sonar + coderabbit"
 gen py -d languages='[python]' -d visibility=public -d agentic=true -d publishes=true
 verify py
 
+check "py: verify ran the profile's Python checks" ran py "typecheck: uv run pyright -p pyproject.toml" "test: uv run pytest --cov" "build: uv build"
+
 echo "==> typescript, private free, eslint, not agentic"
 gen ts -d languages='[typescript]' -d visibility=private -d agentic=false
 verify ts
+
+check "ts: verify ran the profile's TypeScript checks" ran ts "format: pnpm run format:check" "test: pnpm run test:coverage"
 
 echo "==> typescript, oxlint, mypy n/a"
 gen ts-ox -d languages='[typescript]' -d ts_linter=oxlint -d agentic=false
@@ -64,7 +83,9 @@ verify rs
 echo "==> go, public, publishes, not agentic"
 gen go -d languages='[go]' -d visibility=public -d publishes=true -d agentic=false
 verify go
-check "go: CI tests the floor up to the newest Go" sh -c "grep -q \"go-versions: '\\[\\\"1.26\\\", \\\"1.27\\\"\\]'\" \"$OUT/go/.github/workflows/ci.yml\""
+check "go: CI tests the floor ($(answer go go_version)) up to the newest known Go ($GO_NEWEST)" \
+  grep -qF "go-versions: '$(ci_versions "$(answer go go_version)" "$GO_NEWEST")'" "$OUT/go/.github/workflows/ci.yml"
+check "go: release binaries build with the newest known Go" grep -qF "go-version: \"$GO_NEWEST\"" "$OUT/go/.github/workflows/release.yml"
 check "go: module at the root, root vX.Y.Z tags, 0.x bumps the minor on breaks" sh -c "cd \"$OUT/go\" && head -1 go.mod | grep -qx 'module github.com/example/demo-app' && grep -q '\"include-component-in-tag\": false' release-please-config.json && ! grep -q tag-separator release-please-config.json && grep -q '\"bump-minor-pre-major\": true' release-please-config.json"
 check "go: sbom waits for publish-go; public releases attest and warm the proxy" sh -c "f=\"$OUT/go/.github/workflows/release.yml\"; grep -q 'needs: \\[release-please, publish-go\\]' \"\$f\" && grep -q 'uses: actions/attest@' \"\$f\" && grep -q 'Warm the Go module proxy' \"\$f\""
 if command -v golangci-lint >/dev/null; then
@@ -81,9 +102,11 @@ for row in "2.0.0||1" "2.0.0|/v2|0" "1.4.0|/v2|0" "3.0.0|/v2|1"; do
 done
 
 echo "==> go, private, agentic, floor at the newest Go"
-gen go-priv -d languages='[go]' -d visibility=private -d agentic=true -d go_version=1.27
+gen go-priv -d languages='[go]' -d visibility=private -d agentic=true -d go_version="$GO_NEWEST"
 verify go-priv
-check "go-priv: one CI leg; no attestation or proxy warm in a private repo" sh -c "f=\"$OUT/go-priv/.github/workflows\"; grep -q \"go-versions: '\\[\\\"1.27\\\"\\]'\" \"\$f/ci.yml\" && ! grep -q 'actions/attest@' \"\$f/release.yml\" && ! grep -q 'proxy.golang.org' \"\$f/release.yml\""
+# shellcheck disable=SC2016 # $1 and $2 belong to the inner sh
+check "go-priv: one CI leg; no attestation or proxy warm in a private repo" sh -c 'grep -qF "go-versions: $2" "$1/ci.yml" && ! grep -q "actions/attest@" "$1/release.yml" && ! grep -q "proxy.golang.org" "$1/release.yml"' \
+  _ "$OUT/go-priv/.github/workflows" "'$(ci_versions "$GO_NEWEST" "$GO_NEWEST")'"
 
 echo "==> python + typescript + rust + go, private pro, mypy, sonar, publishes"
 gen multi -d languages='[python, typescript, rust, go]' -d visibility=private -d github_plan=pro \
@@ -91,11 +114,14 @@ gen multi -d languages='[python, typescript, rust, go]' -d visibility=private -d
 verify multi
 check "multi: the Go module path ends in /go, tagged go/vX.Y.Z" sh -c "cd \"$OUT/multi\" && head -1 go/go.mod | grep -qx 'module github.com/example/demo-app/go' && python3 -c 'import json, sys; p = json.load(open(\"release-please-config.json\"))[\"packages\"]; g = p.pop(\"go\"); sys.exit(not (g[\"component\"] == \"go\" and g[\"tag-separator\"] == \"/\" and g[\"bump-minor-pre-major\"] and not any(\"bump-minor-pre-major\" in o or \"tag-separator\" in o for o in p.values())))'"
 check "multi: sbom waits for publish-go" sh -c "grep -q 'needs: \\[release-please, publish-go\\]' \"$OUT/multi/.github/workflows/release.yml\""
+# A crate with no licence fails cargo deny, so a proprietary one names its licence and deny.toml
+# allows it for that crate only. (cargo deny itself runs only where cargo is installed.)
+check "multi: the proprietary Rust crate is licensed for cargo deny" sh -c "cd \"$OUT/multi/rust\" && grep -qx 'license = \"LicenseRef-Proprietary\"' Cargo.toml && grep -qx 'crate = \"demo-app\"' deny.toml && grep -qx 'allow = \\[\"LicenseRef-Proprietary\"\\]' deny.toml && ! grep -q LicenseRef \"$OUT/rs/deny.toml\" \"$OUT/rs/Cargo.toml\""
 
 # Baseline repos (ADR 0002): no managed language, so none of the left-out files may render.
 check_baseline() {
   local d=$1
-  check "baseline leaves out toolchain, release and ops files" sh -c "cd \"$d\" && for f in README.md CONTRIBUTING.md CHANGELOG.md release-please-config.json .release-please-manifest.json .github/workflows/release.yml docs/slo.md docs/dependencies.md docs/runbooks pyproject.toml package.json Cargo.toml python typescript rust; do [ ! -e \"\$f\" ] || { echo \"unexpected \$f\"; exit 1; }; done"
+  check "baseline leaves out toolchain, release and ops files" sh -c "cd \"$d\" && for f in README.md CONTRIBUTING.md CHANGELOG.md release-please-config.json .release-please-manifest.json .github/workflows/release.yml docs/slo.md docs/dependencies.md docs/runbooks pyproject.toml package.json Cargo.toml go.mod python typescript rust go; do [ ! -e \"\$f\" ] || { echo \"unexpected \$f\"; exit 1; }; done"
   check "baseline keeps the merge gate and local CI" sh -c "cd \"$d\" && for f in .github/workflows/ci.yml .github/workflows/ci-local.yml .github/workflows/security.yml .github/dependabot.yml AGENTS.md CLAUDE.md SECURITY.md .pre-commit-config.yaml scripts/bootstrap-github.sh docs/SETUP.md; do [ -e \"\$f\" ] || { echo \"missing \$f\"; exit 1; }; done"
 }
 
@@ -127,7 +153,8 @@ check "release-please bumps uv.lock's own version" sh -c "grep -q \"@.name.value
 check "releases are drafted, then published after the SBOM is attached" sh -c "grep -q '\"draft\": true' \"$OUT/py/release-please-config.json\" && grep -q '\"force-tag-creation\": true' \"$OUT/py/release-please-config.json\" && grep -q 'gh release edit \"\$tag\" --draft=false' \"$OUT/py/.github/workflows/release.yml\""
 check "dependabot automerge uses a merge method the repo and its rulesets allow" sh -c "f=\"$OUT/py/.github/workflows/dependabot-automerge.yml\"; grep -q 'rules/branches/\$BASE' \"\$f\" && grep -q 'gh pr merge --auto \"--\$method\"' \"\$f\" && ! grep -q -- '--squash' \"\$f\""
 check "typescript projects ship an expiring osv-scanner accept list" sh -c "grep -q '^ignoreUntil = ' \"$OUT/ts/osv-scanner.toml\" && grep -q '^ignoreUntil = ' \"$OUT/multi/typescript/osv-scanner.toml\" && test ! -e \"$OUT/py/osv-scanner.toml\""
-check "uncapped Python still tests up to 3.14" sh -c "grep -q '\"3.14\"' \"$OUT/py/.github/workflows/ci.yml\""
+check "uncapped Python tests the floor ($(answer py python_version)) up to the newest known ($PY_NEWEST)" \
+  grep -qF "python-versions: '$(ci_versions "$(answer py python_version)" "$PY_NEWEST")'" "$OUT/py/.github/workflows/ci.yml"
 
 # Secret requirements (ADR 0003): the rendered list of Actions secrets must match the secrets the
 # rendered workflows read, and every file it names as a user must exist.
@@ -157,7 +184,10 @@ echo "==> verify-generated.sh fails on a broken repo"
 rm -rf "${OUT:?}/broken"; cp -R "$OUT/base-priv" "$OUT/broken"
 printf '# [[ project_name ]]\n' > "$OUT/broken/NOTES.md"
 printf '{\n' > "$OUT/broken/.claude/settings.json"
-check "exits 1 and names the unrendered tag and the invalid JSON" sh -c "out=\$(bash \"$VERIFY\" \"$OUT/broken\" 2>&1); rc=\$?; echo \"\$out\" | tail -40; [ \$rc = 1 ] && echo \"\$out\" | grep -q 'FAIL no unrendered template tags' && echo \"\$out\" | grep -q 'FAIL json valid'"
+# ...and, posing as a Python repo, it has no language profiles: verify must not pass it without checks.
+sed -i.bak 's/^languages: \[\]$/languages: [python]/' "$OUT/broken/.copier-answers.yml" && rm -f "$OUT/broken/.copier-answers.yml.bak"
+rm -f "$OUT/broken/.github/language-profiles.json"
+check "exits 1 and names the unrendered tag, the invalid JSON and the missing language profiles" sh -c "out=\$(bash \"$VERIFY\" \"$OUT/broken\" 2>&1); rc=\$?; echo \"\$out\" | tail -40; [ \$rc = 1 ] && echo \"\$out\" | grep -q 'FAIL no unrendered template tags' && echo \"\$out\" | grep -q 'FAIL json valid' && echo \"\$out\" | grep -q 'FAIL language profiles'"
 
 echo
 if [[ ${#failed[@]} -eq 0 ]]; then

@@ -4,10 +4,12 @@
 # every answer set, so CI tests it too.
 #   verify-generated.sh [repo-dir]
 #   CENTRAL_DIR=<clone of ZeleMate/workflows>   reuse a clone instead of fetching the pinned SHA
-# Reads .copier-answers.yml to know which languages exist and where.
+# Each managed language's checks come from the repo's .github/language-profiles.json, rendered by
+# the template from its language profiles: the commands AGENTS.md documents, run in order.
 # Exits 0 if every check passes, 1 if any fails, 2 if repo-dir has no .copier-answers.yml.
-# Needs: uv, git; pnpm + node for TypeScript; cargo for Rust and go for Go (each skipped without it);
-# actionlint, zizmor, osv-scanner and golangci-lint optional (skipped without them).
+# Needs: uv, git, python3. Each language's toolchain (uv, pnpm, cargo, go) and any tool a check
+# names (golangci-lint, cargo-nextest, cargo-deny) are skipped when missing, as are actionlint,
+# zizmor and osv-scanner.
 set -uo pipefail
 
 REPO="$(cd "${1:-.}" && pwd)"
@@ -23,8 +25,7 @@ check() { # name, command...
 
 langs=$(uvx --no-build --quiet --from pyyaml python -c 'import sys, yaml; print(" ".join(yaml.safe_load(open(sys.argv[1]))["languages"]))' "$ANSWERS")
 # An empty list is a baseline repo: no managed language, so only the repo-wide checks run.
-multi=0; [[ "$(wc -w <<<"$langs")" -gt 1 ]] && multi=1
-dir_for() { if [[ "$multi" = 1 ]]; then echo "$REPO/$1"; else echo "$REPO"; fi; }
+PROFILES="$REPO/.github/language-profiles.json"
 
 echo "==> repo-wide ($REPO; languages: ${langs:-none, a baseline repo})"
 if command -v actionlint >/dev/null; then
@@ -34,7 +35,7 @@ if command -v actionlint >/dev/null; then
 fi
 command -v zizmor >/dev/null && check "zizmor" zizmor --offline --min-severity medium "$REPO/.github/workflows"
 [[ -f "$REPO/scripts/bootstrap-github.sh" ]] && check "bootstrap syntax" bash -n "$REPO/scripts/bootstrap-github.sh"
-check "json valid" sh -c "for f in \"$REPO\"/.claude/settings.json \"$REPO\"/.github/rulesets/main.json \"$REPO\"/release-please-config.json \"$REPO\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
+check "json valid" sh -c "for f in \"$REPO\"/.claude/settings.json \"$REPO\"/.github/rulesets/main.json \"$REPO\"/.github/settings-requirements.json \"$REPO\"/.github/secret-requirements.json \"$REPO\"/release-please-config.json \"$REPO\"/.release-please-manifest.json; do [ -f \"\$f\" ] || continue; python3 -m json.tool \"\$f\" >/dev/null || exit 1; done"
 [[ -f "$REPO/.github/tools/pyproject.toml" ]] && check "ci tools lock" uv lock --check --project "$REPO/.github/tools"
 
 # CI runs pre-commit, the merge-gate check and Semgrep from the central workflow repo's hash-locked
@@ -82,56 +83,54 @@ if [[ -f "$REPO/evals/run.py" ]]; then
   check "evals --mock" sh -c "cd \"$REPO\" && uv run --locked evals/run.py --mock"
 fi
 
-for lang in $langs; do
-  case $lang in
-    python)
-      d=$(dir_for python); echo "==> python ($d)"
-      ( cd "$d"
-        check "uv sync --locked" uv sync --locked
-        check "ruff format" uv run ruff format --check .
-        check "ruff check" uv run ruff check .
-        # -p: a pyrightconfig.json in any parent folder would otherwise win over pyproject.toml.
-        if grep -q pyright pyproject.toml; then check "pyright" uv run pyright -p pyproject.toml; else check "mypy" uv run mypy; fi
-        check "pytest" uv run pytest --cov -q
-        check "uv build" uv build -q
-        [[ "$fail" = 0 ]] ) || fail=1 ;;
-    typescript)
-      d=$(dir_for typescript); echo "==> typescript ($d)"
-      ( cd "$d"
-        check "pnpm install" pnpm install --frozen-lockfile --silent
-        check "prettier" pnpm run -s format:check
-        check "lint" pnpm run -s lint
-        check "typecheck" pnpm run -s typecheck
-        check "vitest" pnpm run -s test:coverage
-        check "build" pnpm run -s build
-        [[ "$fail" = 0 ]] ) || fail=1 ;;
-    rust)
-      d=$(dir_for rust); echo "==> rust ($d)"
-      if ! command -v cargo >/dev/null; then echo "    skip (cargo not installed)"; continue; fi
-      ( cd "$d"
-        check "cargo fmt" cargo fmt --check
-        check "clippy" cargo clippy --all-targets -- -D warnings
-        check "cargo test" cargo test
-        [[ "$fail" = 0 ]] ) || fail=1 ;;
-    go)
-      d=$(dir_for go); echo "==> go ($d)"
-      if ! command -v go >/dev/null; then echo "    skip (go not installed)"; continue; fi
-      # local: a Go older than go.mod's floor fails with Go's own "requires go >= ..." instead of
-      # downloading a toolchain, as in CI. No govulncheck: it needs vuln.go.dev, and CI gates it.
-      ( cd "$d" && export GOTOOLCHAIN=local
-        check "go mod tidy -diff" go mod tidy -diff
-        check "go vet" go vet ./...
-        check "go build" go build ./...
-        check "go test -race" go test -race ./...
-        if command -v golangci-lint >/dev/null; then
-          check "golangci-lint fmt" golangci-lint fmt --diff
-          check "golangci-lint run" golangci-lint run
-        else
-          echo "    skip golangci-lint (not installed)"
-        fi
-        [[ "$fail" = 0 ]] ) || fail=1 ;;
-  esac
-done
+# A Go older than go.mod's floor fails with Go's own "requires go >= ..." instead of downloading a
+# toolchain, as in CI. No govulncheck: it needs vuln.go.dev, and CI gates it.
+export GOTOOLCHAIN=local
+if [[ -n "$langs" && ! -f "$PROFILES" ]]; then
+  echo "==> languages ($langs)"
+  echo "    FAIL language profiles"
+  echo "         no .github/language-profiles.json: the repo predates it; run copier update (the repo-template-update skill)"
+  fail=1
+elif [[ -n "$langs" ]]; then
+  # One line per language (L id dir toolchain), then one per check (C name tool run), fields split by
+  # the ASCII unit separator: a tab would collapse an empty tool field when bash reads it.
+  # Exits 3 if the file's languages are not the answers' languages.
+  plan=$(python3 -c '
+import json, sys
+langs = json.load(open(sys.argv[1]))["languages"]
+if [l["id"] for l in langs] != sys.argv[2].split():
+    sys.exit(3)
+for l in langs:
+    print("L", l["id"], l["dir"], l["toolchain"], sep="\x1f")
+    for c in l["checks"]:
+        print("C", c["name"], c.get("tool", ""), c["run"], sep="\x1f")
+' "$PROFILES" "$langs")
+  rc=$?
+  if [[ $rc != 0 ]]; then
+    echo "==> languages ($langs)"
+    echo "    FAIL language profiles"
+    echo "         .github/language-profiles.json is unreadable or doesn't list the answers' languages ($langs); run copier update"
+    fail=1
+  else
+    run_checks() { # dir: run the checks read from stdin in dir
+      local kind name tool cmd
+      cd "$1" || return 1
+      while IFS=$'\x1f' read -r kind name tool cmd; do
+        if [[ -n "$tool" ]] && ! command -v "$tool" >/dev/null; then echo "    skip $name ($tool not installed)"; continue; fi
+        check "$name: $cmd" sh -c "$cmd"
+      done
+      [[ "$fail" = 0 ]]
+    }
+    while IFS=$'\x1f' read -r kind id dir toolchain; do
+      [[ "$kind" = L ]] || continue
+      where="$REPO"; [[ "$dir" != . ]] && where="$REPO/$dir"
+      echo "==> $id ($where)"
+      if ! command -v "$toolchain" >/dev/null; then echo "    skip ($toolchain not installed)"; continue; fi
+      # This language's check lines: those after its L line, up to the next one.
+      awk -F'\037' -v id="$id" '$1 == "L" { on = ($2 == id); next } on' <<<"$plan" | ( run_checks "$where" ) || fail=1
+    done <<<"$plan"
+  fi
+fi
 
 email=$(grep -E '^author_email:' "$ANSWERS" | sed 's/^author_email: *//')
 case "$email" in
