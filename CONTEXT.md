@@ -55,3 +55,11 @@ _Avoid_: ci-ok (that is its job name), required check, status gate
 **Secret requirement**:
 A credential a generated repo needs, with where it is stored, which workflow or tool uses it, when it applies and how often to rotate it.
 _Avoid_: secret list, token manifest, required secrets
+
+**Settings requirement**:
+A GitHub setting a generated repo needs, with the value bootstrap writes, the value the check expects, and whether its plan and visibility allow it at all.
+_Avoid_: desired state, hardened settings, baseline (that is a repo with no managed language)
+
+**Drift**:
+Where a generated repo's live GitHub state misses its settings or secret requirements: a setting that re-running bootstrap would overwrite, or a needed secret that isn't set.
+_Avoid_: misconfiguration, deviation

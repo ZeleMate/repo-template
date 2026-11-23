@@ -75,7 +75,9 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Lint this repo (pre-commit)
         run: uvx --no-build pre-commit@4.7.0 run --all-files --show-diff-on-failure
+      - name: Bootstrap's apply, dry run and check against recorded GitHub API responses
+        run: ./scripts/test-github-settings.sh
       - name: Render every answer set and check the output
         run: ./scripts/test-template.sh
       - name: Skill scripts (shellcheck)
-        run: shellcheck -S warning scripts/*.sh skills/*/scripts/*.sh
+        run: shellcheck -S warning scripts/*.sh skills/*/scripts/*.sh tests/github-settings/bin/gh
