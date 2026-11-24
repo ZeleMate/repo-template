@@ -46,8 +46,10 @@ cd my-project
 **Pull template improvements into existing repos:**
 
 ```bash
-uvx copier update --trust
+uv run --no-build --project .github/tools copier update --trust
 ```
+
+This runs the Copier version locked in the repo's `.github/tools/uv.lock`, which Dependabot keeps current.
 
 A weekly workflow in each generated repo opens an issue when a new template tag exists.
 

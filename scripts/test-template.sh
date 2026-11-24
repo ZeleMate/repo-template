@@ -51,10 +51,10 @@ answer() { # answer set, question: the answer Copier recorded in .copier-answers
   sed -nE "s/^$2: '?([^']*)'?$/\1/p" "$OUT/$1/.copier-answers.yml"
 }
 
-gen() { # dir, extra copier -d args...
+gen() { # dir, extra copier -d args... (REF=<tag> renders that template version instead of HEAD)
   local dir=$1; shift
   rm -rf "${OUT:?}/$dir"
-  uvx copier copy --trust --defaults --quiet --vcs-ref HEAD \
+  uvx copier copy --trust --defaults --quiet --vcs-ref "${REF:-HEAD}" \
     -d project_name="Demo App" -d author_name="Test Author" -d author_email="test@example.com" \
     -d github_owner=example "$@" "$TEMPLATE" "$OUT/$dir" >"$OUT/.log" 2>&1 || { cat "$OUT/.log"; return 1; }
   git -C "$OUT/$dir" init -q -b main
@@ -155,6 +155,33 @@ check "dependabot automerge uses a merge method the repo and its rulesets allow"
 check "typescript projects ship an expiring osv-scanner accept list" sh -c "grep -q '^ignoreUntil = ' \"$OUT/ts/osv-scanner.toml\" && grep -q '^ignoreUntil = ' \"$OUT/multi/typescript/osv-scanner.toml\" && test ! -e \"$OUT/py/osv-scanner.toml\""
 check "uncapped Python tests the floor ($(answer py python_version)) up to the newest known ($PY_NEWEST)" \
   grep -qF "python-versions: '$(ci_versions "$(answer py python_version)" "$PY_NEWEST")'" "$OUT/py/.github/workflows/ci.yml"
+
+# copier update from the newest released tag (what generated repos are on) to HEAD, run the way a
+# generated repo runs it: with the Copier locked in its own .github/tools. With no local edits, the
+# updated repo must match a fresh copy with the same answers, apart from lockfiles (written at copy
+# time) and _commit. PREV_TAG=<tag> starts from another tag.
+PREV_TAG="${PREV_TAG:-$(git -C "$TEMPLATE" describe --tags --abbrev=0 2>/dev/null || true)}"
+update_from_tag() { # name, copier -d args...
+  # A fresh copy of its own, since verify leaves caches and build output in the answer-set dirs.
+  local name=$1 fresh="fresh-$1" dir="upd-$1"; shift
+  gen "$fresh" "$@"
+  REF="$PREV_TAG" gen "$dir" "$@"
+  check "$name: copier update from $PREV_TAG matches a fresh copy" sh -c "
+    cd \"$OUT/$dir\" && git add -A && git -c user.name=t -c user.email=t@example.com commit -qm 'generated at $PREV_TAG' &&
+    uv run --no-build --locked --project .github/tools copier update --trust --defaults --quiet --conflict inline --vcs-ref HEAD &&
+    find \"$OUT/$fresh\" . -type d -empty -not -path '*/.git/*' -delete &&
+    diff -r -x .git -x .venv -x node_modules -x uv.lock -x pnpm-lock.yaml -x Cargo.lock -x .copier-answers.yml \"$OUT/$fresh\" .
+  "
+}
+if [[ -n "$PREV_TAG" ]]; then
+  echo "==> copier update from $PREV_TAG, with the repo's own locked Copier"
+  update_from_tag py -d languages='[python]' -d visibility=public -d agentic=true -d publishes=true
+  update_from_tag multi -d languages='[python, typescript, rust]' -d visibility=private -d github_plan=pro \
+    -d python_type_checker=mypy -d quality_platform=sonarqube-cloud -d publishes=true
+  update_from_tag base-pub -d languages='[]' -d visibility=public -d agentic=true -d extra_ecosystems='[bun, docker]'
+else
+  echo "==> SKIP copier update cases: no tag reachable from HEAD (fetch tags, or set PREV_TAG)"
+fi
 
 # Secret requirements (ADR 0003): the rendered list of Actions secrets must match the secrets the
 # rendered workflows read, and every file it names as a user must exist.
