@@ -71,3 +71,7 @@ _Avoid_: desired state, hardened settings, baseline (that is a repo with no mana
 **Drift**:
 Where a generated repo's live GitHub state misses its settings or secret requirements: a setting that re-running bootstrap would overwrite, or a needed secret that isn't set.
 _Avoid_: misconfiguration, deviation
+
+**Guard**:
+A permission rule or hook in a generated repo's Claude Code config that stops, or asks before, an agent action and says why; a guardrail against honest mistakes, not a security boundary.
+_Avoid_: security hook, sandbox, policy (the boundary is the GitHub settings and registry credentials)
