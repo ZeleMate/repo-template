@@ -13,7 +13,8 @@ Two jobs live here. **Setup** changes things on GitHub, so it always goes dry ru
 
 ### 1. Preconditions
 
-- `gh auth status` must show the account that is `github_owner` (or an admin of that org). If not, ask the user to run `gh auth login`; don't try to authenticate for them. The script also needs `jq`.
+- The dry run needs no GitHub login: the script checks `gh auth status` only for the real run and `--check`. So a missing login doesn't stop you before step 2; run the dry run and show the plan first. The script also needs `jq`.
+- Before the real run, `gh auth status` must show the account that is `github_owner` (or an admin of that org). If not, ask the user to run `gh auth login` in the same message as the dry-run plan; don't try to authenticate for them.
 - Read `.copier-answers.yml` and `docs/SETUP.md` so you can tell the user what is about to happen in terms of *their* answers.
 - Make sure the generated files are what the user wants committed. The script makes the initial commit from everything in the folder.
 
@@ -27,7 +28,7 @@ Show the user the plan in plain words: creates `<owner>/<slug>` as public/privat
 
 ### 3. Real run, after a clear yes
 
-Creating a repo and pushing code is visible to others and on a public repo it's immediately public. Ask before running:
+Creating a repo and pushing code is visible to others and on a public repo it's immediately public. Check the login (step 1) and ask before running:
 
 ```bash
 ./scripts/bootstrap-github.sh
