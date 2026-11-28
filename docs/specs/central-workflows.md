@@ -4,7 +4,7 @@ The target layout for [ADR 0001](../adr/0001-centralise-ci-and-security-workflow
 
 This spec comes from the map [Centralise CI and update policy, or keep copying it?](https://github.com/ZeleMate/repo-template/issues/2). Each section names the closed ticket it comes from. The template is changed once, in place. Two generated repos already exist and are covered in section 10.
 
-Out of scope: a settings drift checker for generated repos and Claude Code guard hooks.
+Out of scope: a settings drift checker for generated repos and Claude Code guard hooks. _Changed later: guard hooks are specified in [guard-hooks.md](guard-hooks.md)._
 
 **Status (2026-11-11):** built and live. `ZeleMate/workflows` is public and tagged `v1.0.0`. See the build checklist at the end for what the live test did and did not cover.
 
